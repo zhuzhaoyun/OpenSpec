@@ -92,6 +92,10 @@ The **Review Module** is an **agent-centric standalone subsystem** with broad do
     <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/889a30b5-d014-46ca-84e4-26334f6076ba" alt="AI Chat Assistant" /></td>
     <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/1b04355c-709a-4a33-9e39-ac7d04ce483c" alt="Knowledge Base Retrieval" /></td>
   </tr>
+  <tr>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/a7c5761a-8a1c-4e77-a968-d937962c795c" alt="Review Clauses" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/4bceb846-291e-4bf2-b820-38f0ae4a36d8" alt="Agent Intelligent Review" /></td>
+  </tr>
 </table>
 
 > **Video Demo (Architecture Design Scenario):** [Watch on Bilibili](https://www.bilibili.com/video/BV1DoFUzBEmW/?share_source=copy_web&vd_source=d91cce476d06006159a799f4db6b9171)

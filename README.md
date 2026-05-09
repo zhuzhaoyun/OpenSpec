@@ -92,9 +92,10 @@
     <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/889a30b5-d014-46ca-84e4-26334f6076ba" alt="AI 对话助手" /></td>
     <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/1b04355c-709a-4a33-9e39-ac7d04ce483c" alt="知识库检索" /></td>
   </tr>
-    <img width="2903" height="1569" alt="image" src="https://github.com/user-attachments/assets/a7c5761a-8a1c-4e77-a968-d937962c795c" />
-<img width="3151" height="1590" alt="image" src="https://github.com/user-attachments/assets/4bceb846-291e-4bf2-b820-38f0ae4a36d8" />
-
+  <tr>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/a7c5761a-8a1c-4e77-a968-d937962c795c" alt="审查条文" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/4bceb846-291e-4bf2-b820-38f0ae4a36d8" alt="Agent 智能审查" /></td>
+  </tr>
 </table>
 
 > **视频演示（建筑设计场景）：** [在 B 站观看](https://www.bilibili.com/video/BV1DoFUzBEmW/?share_source=copy_web&vd_source=d91cce476d06006159a799f4db6b9171)
