@@ -51,7 +51,7 @@ export interface ProjectItem {
   unreadCount?: number
   pinned?: boolean
   isActive?: boolean
-  sessionList?: Array<{name: string}>
+  sessionList?: Array<{id?: string, name: string}>
 }
 
 export interface Chapter {

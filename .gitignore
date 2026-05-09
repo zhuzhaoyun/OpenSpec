@@ -33,9 +33,14 @@ node_modules/
 dist/
 *.log
 
+apps/web/bsp-user-front
+chapter-prompt/
+apps/web/components.d.ts
+
 # ===== 敏感文件 =====
 *.lic
 apps/backend/keys/private.key
+.env
 
 # ===== 项目特定 =====
 apps/agent/tests/*

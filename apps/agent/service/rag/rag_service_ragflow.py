@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import threading
+from service.utils.prompt_manager import PromptManager
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from service.workflow.rag_graph import app as rag_workflow_app

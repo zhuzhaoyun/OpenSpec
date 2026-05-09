@@ -64,7 +64,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update:visible', 'content-generated', 'content-streaming', 'resize', 'resize-start', 'resize-end']);
+const emit = defineEmits(['update:visible', 'content-generated', 'content-streaming', 'resize', 'resize-start', 'resize-end', 'generation-stopped', 'update:enableCitation']);
 
 // Resize logic
 const isResizing = ref(false);
@@ -105,6 +105,12 @@ const chapterTemplateText = ref('');
 const additionalRequirements = ref('');
 const isGenerating = ref(false);
 const enableAudit = ref(false); // 是否启用校验
+const enableCitation = ref(false); // 是否在正文中显示引用标记
+
+// 引用标记开关变化时通知父组件
+watch(enableCitation, (val) => {
+  emit('update:enableCitation', val);
+}, { immediate: true });
 
 // 模板相关状态
 const documentTemplates = ref([]);
@@ -514,6 +520,8 @@ const handleGenerate = async () => {
 
   try {
     let fullContent = '';
+    let chunkReference = [];  // 引用元数据（来自 reference 事件）
+    let docAggs = [];  // 引用文档聚合列表（来自 reference 事件）
 
     // 获取用户信息
     const userInfo = authStorage.getUserInfo();
@@ -529,6 +537,7 @@ const handleGenerate = async () => {
         project_info: projectInfoText.value,
         user_id: userId,
         enable_audit: enableAudit.value,  // 传递校验开关状态
+        enable_citation: enableCitation.value,  // 传递引用标记开关状态
         chapter_name: props.currentChapter?.title || undefined,
         additional_requirements: additionalRequirements.value.trim() || undefined,
         profession_tag_id: props.projectInfo?.professionTagId,      // 标签：专业
@@ -556,13 +565,23 @@ const handleGenerate = async () => {
           fullContent = event.data.thought;
           emit('content-streaming', fullContent);
         }
+
+        // 接收引用元数据
+        if (event.event === 'reference') {
+          if (event.data.chunk_reference) {
+            chunkReference = event.data.chunk_reference;
+          }
+          if (event.data.doc_aggs) {
+            docAggs = event.data.doc_aggs;
+          }
+        }
       },
       abortController.value.signal
     );
 
     // 5. 生成完成后自动应用到编辑器
     if (fullContent) {
-      emit('content-generated', fullContent);
+      emit('content-generated', fullContent, chunkReference, docAggs);
     }
 
   } catch (error) {
@@ -592,6 +611,7 @@ const stopGeneration = () => {
   }
   isGenerating.value = false;
   ElMessage.info('已停止生成');
+  emit('generation-stopped');
 };
 
 // 辅助函数：检查步骤是否有内容
@@ -1203,7 +1223,7 @@ onBeforeUnmount(() => {
                 <div class="card-header">
                   <el-icon class="card-icon"><EditPen /></el-icon>
                   <span class="card-title">补充要求</span>
-                  <span class="card-optional">可选</span>
+                  <!-- <span class="card-optional">可选</span> -->
                 </div>
                 <el-input
                   v-model="additionalRequirements"
@@ -1222,7 +1242,7 @@ onBeforeUnmount(() => {
                 <div class="card-header">
                   <el-icon class="card-icon"><Setting /></el-icon>
                   <span class="card-title">高级选项</span>
-                  <span class="card-optional">可选</span>
+                  <!-- <span class="card-optional">可选</span> -->
                 </div>
                 <div class="advanced-options">
                   <div class="option-item">
@@ -1237,6 +1257,26 @@ onBeforeUnmount(() => {
                     </div>
                     <el-switch
                       v-model="enableAudit"
+                      :disabled="isGenerating"
+                      size="small"
+                      active-text="开启"
+                      inactive-text="关闭"
+                    />
+                  </div>
+                </div>
+                <div class="advanced-options">
+                  <div class="option-item">
+                    <div class="option-label">
+                      <span>引用标记</span>
+                      <el-tooltip
+                        content="开启后， 将在生成内容的对应位置显示引用标记，供文档溯源。"
+                        placement="top"
+                      >
+                        <el-icon class="help-icon"><QuestionFilled /></el-icon>
+                      </el-tooltip>
+                    </div>
+                    <el-switch
+                      v-model="enableCitation"
                       :disabled="isGenerating"
                       size="small"
                       active-text="开启"

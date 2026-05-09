@@ -2,7 +2,7 @@ fastapi==0.110.0
 uvicorn[standard]==0.27.0
 # starlette==0.36.3
 openai==1.58.1
-llama-index==0.12.8
+# llama-index==0.12.8
 colorama==0.4.6
 requests>=2.32.5
 python-dotenv==1.0.1
@@ -10,7 +10,7 @@ pydantic ==2.10.4
 gunicorn==22.0.0
 dashscope>=1.22.1
 # gevent>=23.9.1
-ragflow-sdk==0.23.1
+ragflow-sdk==0.24.0
 peewee==3.17.3
 openpyxl
 
@@ -18,12 +18,12 @@ openpyxl
 langfuse>=3.0.0,<4.0.0
 
 # 接入 duckduckgo-search, 用于网络搜索工具
-ddgs==9.10.0
+duckduckgo-search==6.3.7
 
 # Integration langgraph
-langgraph==1.0.5
-langchain-community==0.4.1
-langchain==1.2.0
+langgraph==0.2.57
+langchain-community==0.3.20
+langchain==0.3.21
 # ipython
 python-multipart==0.0.21
 
@@ -32,7 +32,7 @@ PyJWT>=2.8.0
 
 # PostgreSQL support for LangGraph Memory and Peewee
 psycopg[binary]>=3.1.0
-langgraph-checkpoint-postgres>=1.0.0
+langgraph-checkpoint-postgres==2.0.11
 
 # Token counting for accurate pricing
 tiktoken>=0.5.0

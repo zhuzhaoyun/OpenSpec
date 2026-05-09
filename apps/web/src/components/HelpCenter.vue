@@ -51,6 +51,11 @@ const placeholderIcons: Record<string, string> = {
   screenshot: '📷',
   article: '📄',
 }
+
+/** 打开 GitHub 仓库 */
+function openGitHub() {
+  window.open('https://github.com/zhuzhaoyun/OpenSpec', '_blank')
+}
 </script>
 
 <template>
@@ -128,14 +133,14 @@ const placeholderIcons: Record<string, string> = {
           <span class="contact-icon">📧</span>
           <div class="contact-info">
             <div class="contact-label">反馈邮箱</div>
-            <div class="contact-value">support@archspec.cn</div>
+            <div class="contact-value">dlutyaol@qq.com</div>
           </div>
         </div>
-        <div class="contact-card">
+        <div class="contact-card contact-card-clickable" @click="openGitHub">
           <span class="contact-icon">💬</span>
           <div class="contact-info">
-            <div class="contact-label">GitHub Issues</div>
-            <div class="contact-value">开源版问题反馈</div>
+            <div class="contact-label">GitHub开源</div>
+            <div class="contact-value">查看源码or问题反馈</div>
           </div>
         </div>
       </div>
@@ -274,6 +279,15 @@ const placeholderIcons: Record<string, string> = {
   font-size: 14px;
   font-weight: 500;
   color: var(--gray-900, #111827);
+}
+.contact-card-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.contact-card-clickable:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 2px 8px rgba(0, 120, 212, 0.15);
+  transform: translateY(-2px);
 }
 
 /* 响应式 */

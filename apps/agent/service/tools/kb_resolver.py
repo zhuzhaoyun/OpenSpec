@@ -42,14 +42,14 @@ except Exception:
 # =============================================================================
 TAG_KB_MAPPING = {
     # === 专业标签 (profession) ===
-    1: {  # 建筑
-        "case": ["d831552b123b11f1b6210242c0a83002"],
+    # 1: {  # 建筑
+        #"case": ["d831552b123b11f1b6210242c0a83002"],
         # "standard": ["ragflow_kb_arch_std_01"],
-    },
-    2: {  # 结构
-        "case": ["f20db9a9123b11f1954e0242c0a83002"],
+    #},
+    #2: {  # 结构
+        #"case": ["f20db9a9123b11f1954e0242c0a83002"],
         # "standard": ["ragflow_kb_struct_std_01"],
-    },
+    #},
     # 3: {  # 给排水
     #     "case": [],
     #     "standard": [],
@@ -64,10 +64,10 @@ TAG_KB_MAPPING = {
     # },
 
     # === 业态标签 (business_type) ===
-    9: {  # 学校
-        "case": ["3d0a5d45123c11f1a9b00242c0a83002"],
+    #9: {  # 学校
+        #"case": ["3d0a5d45123c11f1a9b00242c0a83002"],
         # "standard": ["ragflow_kb_school_std_01"],
-    },
+    #},
     # 10: {  # 医院
     #     "case": [],
     #     "standard": [],

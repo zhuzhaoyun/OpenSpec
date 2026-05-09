@@ -115,6 +115,7 @@ interface Props {
   autoSave?: boolean
   inGenerating?: boolean
   currentChapter?:any
+  showCitation?: boolean
 }
 
 interface Emits {
@@ -125,7 +126,8 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   autoSave: false,
-  inGenerating: false
+  inGenerating: false,
+  showCitation: true
 })
 
 const emit = defineEmits<Emits>()
@@ -236,8 +238,8 @@ const updateRenderedContent = async () => {
     return
   }
   try {
-    const withRefs = transformReferences(localContent.value)
-    const result = marked(withRefs) as any
+    const mdContent = props.showCitation ? transformReferences(localContent.value) : localContent.value
+    const result = marked(mdContent) as any
     if (result && typeof result.then === 'function') {
       const html = await result
       renderedContent.value = highlightHtmlNumbers(String(html || ''))
@@ -249,7 +251,7 @@ const updateRenderedContent = async () => {
     renderedContent.value = '<p class="error-placeholder">渲染错误，请检查 Markdown 语法</p>'
   }
 }
-watch([localContent, () => props.inGenerating], () => { updateRenderedContent() })
+watch([localContent, () => props.inGenerating, () => props.showCitation], () => { updateRenderedContent() })
 updateRenderedContent()
 
 const escapeHtml = (str: string) => String(str || '')
@@ -276,7 +278,9 @@ const openImage = (refObj: any) => {
 }
 
 const showRefPopover = (t: HTMLElement, idx: number) => {
-  const refObj = Array.isArray(props.currentChapter?.chunkReference) ? props.currentChapter.chunkReference[idx] : undefined
+  const refList = Array.isArray(props.currentChapter?.chunkReference) ? props.currentChapter.chunkReference : []
+  // 先按数组下标查找，再按 index 字段查找（兼容 hash_id 引用）
+  const refObj = refList[idx] || (refList as any[]).find((r: any) => r?.index === idx)
   if (!refObj) {
     ElMessage.warning('未找到对应的引用')
     popoverVisible.value = false;

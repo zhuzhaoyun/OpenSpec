@@ -3,21 +3,24 @@ import type { RouteRecordRaw } from 'vue-router'
 import Home from '../views/Home.vue'
 import CreateDocument from '../views/CreateDocument.vue'
 import Editor from '../views/Editor.vue'
-import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import ProjectQA from '../views/ProjectQA.vue'
 import Settings from '../views/Settings.vue'
+import StandardReview from '../views/StandardReview.vue'
+import ReviewList from '../views/ReviewList.vue'
+import ReviewResult from '../views/ReviewResult.vue'
+import StandardClauses from '../views/StandardClauses.vue'
 import TemplateDetail from '../views/TemplateDetail.vue'
 import { authStorage } from '../utils/auth'
 
 const routes: RouteRecordRaw[] = [
-  // 公开路由
+  // 登录页已合并到 Home 的 LoginDialog，旧路径重定向到首页
   {
     path: '/login',
-    name: 'Login',
-    component: Login,
-    meta: { requiresAuth: false }
+    redirect: '/home'
   },
+
+  // 注册页保留
   {
     path: '/register',
     name: 'Register',
@@ -67,6 +70,30 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/review',
+    name: 'ReviewList',
+    component: ReviewList,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/review/new',
+    name: 'StandardReview',
+    component: StandardReview,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/review/:id',
+    name: 'ReviewResult',
+    component: ReviewResult,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/clauses',
+    name: 'StandardClauses',
+    component: StandardClauses,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/template/:id',
     name: 'TemplateDetail',
     component: TemplateDetail,
@@ -90,15 +117,8 @@ router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const isAuthenticated = authStorage.isAuthenticated()
 
-  // 如果路由需要认证但用户未登录，重定向到登录页
+  // 如果路由需要认证但用户未登录，重定向到首页（由 Home 的 LoginDialog 处理登录）
   if (requiresAuth && !isAuthenticated) {
-    next({
-      path: '/login',
-      query: { redirect: to.fullPath } // 保存原始路径，登录后可以跳转回去
-    })
-  }
-  // 如果已登录用户访问登录页或注册页，重定向到首页
-  else if ((to.path === '/login' || to.path === '/register') && isAuthenticated) {
     next('/home')
   }
   else {

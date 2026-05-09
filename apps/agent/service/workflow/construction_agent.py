@@ -5,6 +5,7 @@
 import os
 import datetime
 import sys
+import re
 import operator
 from typing import TypedDict, Annotated, List
 from dotenv import load_dotenv
@@ -23,8 +24,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 # 导入自定义工具和日志
 from service.tools.construction_tools import retrieve_case, retrieve_standard
-from service.utils.prompt_manager import PromptManager
+from service.utils.prompt_builder import PromptBuilder
 from service.utils.token_counter import get_token_counter, count_tokens, truncate_text, calculate_available_tokens
+from service.utils.citation_prompt import get_citation_prompt
 from utils.logger import get_logger
 
 # =============================================================================
@@ -127,6 +129,12 @@ class AgentState(TypedDict):
     audit_loop_count: int     # 记录 Auditor 循环次数
     auditor_tool_call_count: int  # 记录 Auditor 工具调用次数（防止无限循环）
     enable_audit: bool        # 是否启用 Auditor 校验（默认 False）
+    enable_citation: bool     # 是否启用引用标记（默认 True）
+
+    # Prompt 路由专用状态
+    profession_tag_id: int       # 专业标签 ID（用于 Prompt 路由）
+    business_type_tag_id: int   # 业态标签 ID
+    chapter_name: str           # 当前章节名称
 
 
 # =============================================================================
@@ -385,17 +393,15 @@ def researcher_node(state: AgentState, config: RunnableConfig):
     else:
         loop_guidance = "⚠️ **重要提醒**：这是最后一次检索机会。请评估现有资料是否基本满足要求。如果已有相关内容，请务必回复'资料收集完毕'，避免过度追求完美而反复检索。"
 
-    prompt_manager = PromptManager()
-    # 从 Langfuse 获取 Researcher Prompt
-    researcher_prompt = prompt_manager.get_prompt("langchain_researcher")
-
-    # 编译 Prompt，传入所有参数（包括循环状态）
-    system_msg = SystemMessage(content=researcher_prompt.compile(
+    profession_tag_id = state.get("profession_tag_id", 0)
+    chapter_name = state.get("chapter_name", "")
+    builder = PromptBuilder(profession_tag_id=profession_tag_id, chapter_name=chapter_name)
+    system_msg = builder.build_researcher(
         project_info=project_info,
-        loop_count=loop_count + 1,  # 传入当前是第几次循环（从1开始）
-        max_loops=MAX_RESEARCH_LOOPS,  # 传入最大循环次数
-        loop_guidance=loop_guidance  # 传入动态引导语
-    ))
+        loop_count=loop_count + 1,
+        max_loops=MAX_RESEARCH_LOOPS,
+        loop_guidance=loop_guidance,
+    )
 
     messages = state["messages"]
     # 确保 SystemMessage 存在且是最新的
@@ -471,10 +477,10 @@ def generate_node(state: AgentState, config: RunnableConfig):
     if related_chapters:
         related_context = format_related_chapters(related_chapters)
         context = f"""## 已生成的相关章节摘要
-{related_context}
+        {related_context}
 
-## 检索到的参考资料
-{context}"""
+        ## 检索到的参考资料
+        {context}"""
         logger.info(f"[Generate] Added {len(related_chapters)} related chapters to context")
 
     # 5. 提取其他参数
@@ -486,35 +492,30 @@ def generate_node(state: AgentState, config: RunnableConfig):
     if previous_chapters:
         chapter_names = [c['name'] for c in previous_chapters]
         dedup_instruction = f"""
-
-**重要提示（章节去重和关联）**：
-1. 本文档已生成以下章节：{', '.join(chapter_names[:5])}{'等' if len(chapter_names) > 5 else ''}
-2. 请避免与已生成章节重复，确保内容的独特性和互补性
-3. 如需引用其他章节内容，请明确标注引用关系（如"详见XX章节"）
-4. 确保内容逻辑一致性（如防水章节需结合墙体工程、屋面工程等相关内容）
-5. 数量声明必须与表格数据完全匹配，避免前后矛盾
-"""
+        **重要提示（章节去重和关联）**：
+        1. 本文档已生成以下章节：{', '.join(chapter_names[:5])}{'等' if len(chapter_names) > 5 else ''}
+        2. 请避免与已生成章节重复，确保内容的独特性和互补性
+        3. 如需引用其他章节内容，请明确标注引用关系（如"详见XX章节"）
+        4. 确保内容逻辑一致性（如防水章节需结合墙体工程、屋面工程等相关内容）
+        5. 数量声明必须与表格数据完全匹配，避免前后矛盾
+        """
         question += dedup_instruction
         logger.info("[Generate] Added deduplication and correlation instructions")
 
     # 检测模板中是否有占位符（XX、XXX等），并进行预处理
-    import re
     # 匹配各种占位符模式：XX、XXX、XXXX、____等
     placeholder_pattern = r'X{2,}|_{2,}'
     has_placeholder = bool(re.search(placeholder_pattern, template)) if template else False
 
-    # 构建增强的生成指令
-    prompt_manager = PromptManager()
-    enhance_instruction_prompt = prompt_manager.get_prompt("generator-enhance")
-    enhanced_instruction = enhance_instruction_prompt.compile() if enhance_instruction_prompt else ""
+    # 初始化 PromptBuilder（供后续 generate 调用）
+    profession_tag_id = state.get("profession_tag_id", 0)
+    chapter_name = state.get("chapter_name", "")
+    builder = PromptBuilder(profession_tag_id=profession_tag_id, chapter_name=chapter_name)
 
     if has_placeholder:
         # 预处理模板，将所有占位符统一替换
         template = re.sub(r'X{2,}', '[需填写具体数值]', template)
         template = re.sub(r'_{2,}', '[需填写具体数值]', template)
-
-    # 将增强指令添加到question开头
-    question = enhanced_instruction + f"原始请求：{question}"
 
     # 7. 检查是否有审核意见 (Feedback) - 优化检测逻辑，支持结构化反馈解析
     last_msg = messages[-1]
@@ -540,25 +541,25 @@ def generate_node(state: AgentState, config: RunnableConfig):
             # 特别强调逻辑一致性问题（泛化版本，适用于所有章节类型）
             if "逻辑一致性" in feedback_content or ("数量" in feedback_content and "表格" in feedback_content):
                 revision_instruction += """
-⚠️ **逻辑一致性修正要求**：
-- 文档开头的声明（数量、类型、范围）必须与后续详细内容/表格数据完全一致
-- 如果声明"无"或"0"，则必须删除对应的详细描述或选型表格
-- 如果声明具体数量（如"X台/X个/X处"），则表格中必须恰好有相应数量的行
-- 不能出现前后文自相矛盾的表述
-- 数量声明必须与表格数据完全匹配，不能有冗余表格或遗漏项
-"""
+                ⚠️ **逻辑一致性修正要求**：
+                - 文档开头的声明（数量、类型、范围）必须与后续详细内容/表格数据完全一致
+                - 如果声明"无"或"0"，则必须删除对应的详细描述或选型表格
+                - 如果声明具体数量（如"X台/X个/X处"），则表格中必须恰好有相应数量的行
+                - 不能出现前后文自相矛盾的表述
+                - 数量声明必须与表格数据完全匹配，不能有冗余表格或遗漏项
+                """
 
             # 特别强调符号规范问题
             if "゜" in feedback_content or "符号" in feedback_content:
                 revision_instruction += """
-⚠️ **符号规范修正要求**：
-- 角度符号必须使用中文"°"，不能使用日文"゜"
-"""
+                ⚠️ **符号规范修正要求**：
+                - 角度符号必须使用中文"°"，不能使用日文"゜"
+                """
 
             revision_instruction += f"\n完整审核意见：\n{feedback_content}"
             question += revision_instruction
 
-    # 4. 智能长度控制：使用 TokenCounter 进行精确计算
+    # 8. 智能长度控制：使用 TokenCounter 进行精确计算
     # 使用 TokenCounter 计算各部分的 token 数
     question_tokens = count_tokens(question)
     template_tokens = count_tokens(template)
@@ -583,7 +584,7 @@ def generate_node(state: AgentState, config: RunnableConfig):
         f"available_for_context={available_tokens} tokens"
     )
 
-    # 5. 根据可用 token 数截断 context
+    # 9. 根据可用 token 数截断 context
     context_tokens = count_tokens(context)
     
     if available_tokens < 1000:
@@ -615,17 +616,19 @@ def generate_node(state: AgentState, config: RunnableConfig):
         # 保留最新的内容（从后面截取）
         context = truncate_text(context, available_tokens, preserve_end=True)
 
-    # 6. 调用生成逻辑
-    # prompt_manager = PromptManager() # Already instantiated above
+    # 10. 调用生成逻辑
     try:
-        # 从 Langfuse 获取 Prompt
-        prompt = prompt_manager.get_prompt("construction_agent_system")
-        full_prompt = prompt.compile(
+        full_prompt = builder.build_generate(
             context=context,
             question=question,
             template=template,
-            project_info=project_info
+            project_info=project_info,
         )
+
+        # 追加引用规则提示词（仅在 enable_citation 开启时）
+        enable_citation = state.get("enable_citation", True)
+        if enable_citation:
+            full_prompt += get_citation_prompt()
 
         # 最终安全检查：如果仍然超长，进行二次截断
         full_prompt_tokens = count_tokens(full_prompt)
@@ -651,11 +654,11 @@ def generate_node(state: AgentState, config: RunnableConfig):
             context = truncate_text(context, new_context_tokens, preserve_end=True)
 
             # 重新编译
-            full_prompt = prompt.compile(
+            full_prompt = builder.build_generate(
                 context=context,
                 question=question,
                 template=template,
-                project_info=project_info
+                project_info=project_info,
             )
 
             final_tokens = count_tokens(full_prompt)
@@ -666,6 +669,10 @@ def generate_node(state: AgentState, config: RunnableConfig):
         return {"messages": [AIMessage(content=f"生成出错: {str(e)}")]}
 
     streaming_llm = ChatTongyi(model="qwen-max", temperature=0.1, streaming=True)
+
+    # print("="*80)
+    # print(full_prompt)
+    # print("="*80)
 
     try:
         # 使用 invoke 并传递 config，让 astream_events 捕获流式输出
@@ -778,29 +785,17 @@ def auditor_node(state: AgentState, config: RunnableConfig):
     else:
         loop_guidance = "⚠️ **重要提醒**：这是最后一次校验机会。请评估当前文档质量，如果基本符合要求，请务必回复'pass'。"
 
-    # 获取 Auditor Prompt
-    prompt_manager = PromptManager()
-    auditor_prompt = prompt_manager.get_prompt("langchain_auditor")
-
-    # Fetch audit dimensions
-    audit_dimensions_prompt = prompt_manager.get_prompt("auditor-enhance")
-    audit_dimensions_content = audit_dimensions_prompt.compile() if audit_dimensions_prompt else ""
-
-    # 编译 Prompt，传入循环状态和校验维度
-    base_prompt = auditor_prompt.compile(
+    # 使用 PromptBuilder 组装 Auditor 提示词
+    profession_tag_id = state.get("profession_tag_id", 0)
+    chapter_name = state.get("chapter_name", "")
+    builder = PromptBuilder(profession_tag_id=profession_tag_id, chapter_name=chapter_name)
+    auditor_content = builder.build_auditor(
         loop_count=loop_count + 1,
         max_loops=MAX_AUDIT_LOOPS,
-        loop_guidance=loop_guidance
+        loop_guidance=loop_guidance,
     )
 
-    # 增强 Prompt：添加结构化校验维度和输出格式要求
-    enhanced_prompt = f"""{base_prompt}
-
-    {audit_dimensions_content}
-
-    """
-
-    system_msg = SystemMessage(content=enhanced_prompt)
+    system_msg = SystemMessage(content=auditor_content)
 
     # 过滤消息，移除带有未响应 tool_calls 的 AIMessage
     messages = filter_messages_for_auditor(state["messages"])

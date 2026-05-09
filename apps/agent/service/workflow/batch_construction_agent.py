@@ -21,7 +21,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 # 导入自定义工具和日志
 from service.tools.construction_tools import retrieve_case, retrieve_standard
-from service.utils.prompt_manager import PromptManager
+from service.utils.prompt_builder import PromptBuilder
 from service.utils.token_counter import get_token_counter, count_tokens, truncate_text, calculate_available_tokens
 from utils.logger import get_logger
 
@@ -67,6 +67,11 @@ class BatchAgentState(TypedDict):
     retrieved_context: str
     draft_content: str
     research_loop_count: int
+
+    # Prompt 路由专用状态
+    profession_tag_id: int       # 专业标签 ID（用于 Prompt 路由）
+    business_type_tag_id: int   # 业态标签 ID
+    chapter_name: str           # 当前章节名称
 
 
 # =============================================================================
@@ -138,15 +143,15 @@ def researcher_node(state: BatchAgentState):
     else:
         loop_guidance = "⚠️ 这是最后一次检索机会。请务必回复'资料收集完毕'。"
 
-    prompt_manager = PromptManager()
-    researcher_prompt = prompt_manager.get_prompt("langchain_researcher")
-
-    system_msg = SystemMessage(content=researcher_prompt.compile(
+    profession_tag_id = state.get("profession_tag_id", 0)
+    chapter_name = state.get("chapter_name", "")
+    builder = PromptBuilder(profession_tag_id=profession_tag_id, chapter_name=chapter_name)
+    system_msg = builder.build_researcher(
         project_info=project_info,
         loop_count=loop_count + 1,
         max_loops=MAX_RESEARCH_LOOPS,
-        loop_guidance=loop_guidance
-    ))
+        loop_guidance=loop_guidance,
+    )
 
     messages = state["messages"]
     if not isinstance(messages[0], SystemMessage) or "Researcher" not in str(messages[0].content):
@@ -195,18 +200,15 @@ def generate_node(state: BatchAgentState):
     placeholder_pattern = r'X{2,}|_{2,}'
     has_placeholder = bool(re.search(placeholder_pattern, template)) if template else False
 
-    # 构建增强的生成指令
-    prompt_manager = PromptManager()
-    enhance_instruction_prompt = prompt_manager.get_prompt("generator-enhance")
-    enhanced_instruction = enhance_instruction_prompt.compile() if enhance_instruction_prompt else ""
+    # 初始化 PromptBuilder（供后续 generate 调用）
+    profession_tag_id = state.get("profession_tag_id", 0)
+    chapter_name = state.get("chapter_name", "")
+    builder = PromptBuilder(profession_tag_id=profession_tag_id, chapter_name=chapter_name)
 
     if has_placeholder:
         # 预处理模板，将所有占位符统一替换
         template = re.sub(r'X{2,}', '[需填写具体数值]', template)
         template = re.sub(r'_{2,}', '[需填写具体数值]', template)
-
-    # 将增强指令添加到question开头
-    question = enhanced_instruction + f"原始请求：{question}"
 
     # 智能长度控制：使用 TokenCounter 进行精确计算
     question_tokens = count_tokens(question)
@@ -250,12 +252,11 @@ def generate_node(state: BatchAgentState):
         context = truncate_text(context, available_tokens, preserve_end=True)
 
     try:
-        prompt = prompt_manager.get_prompt("construction_agent_system")
-        full_prompt = prompt.compile(
+        full_prompt = builder.build_generate(
             context=context,
             question=question,
             template=template,
-            project_info=project_info
+            project_info=project_info,
         )
 
         full_prompt_tokens = count_tokens(full_prompt)
@@ -267,11 +268,11 @@ def generate_node(state: BatchAgentState):
             current_context_tokens = count_tokens(context)
             new_context_tokens = max(min_context_tokens, current_context_tokens - excess_tokens - 200)
             context = truncate_text(context, new_context_tokens, preserve_end=True)
-            full_prompt = prompt.compile(
+            full_prompt = builder.build_generate(
                 context=context,
                 question=question,
                 template=template,
-                project_info=project_info
+                project_info=project_info,
             )
             final_tokens = count_tokens(full_prompt)
             logger.info(f"[Batch Generate] Final prompt length: {final_tokens} tokens")
@@ -390,7 +391,10 @@ async def generate_chapter_batch(
     user_id: str = "default_user",
     langfuse_handler = None,
     langfuse_metadata: dict = None,
-    thread_id: str = None
+    thread_id: str = None,
+    profession_tag_id: int = 0,
+    business_type_tag_id: int = 0,
+    chapter_name: str = ""
 ) -> dict:
     """
     批量生成章节内容（非流式）
@@ -404,6 +408,9 @@ async def generate_chapter_batch(
         langfuse_handler: Langfuse callback handler for tracing
         langfuse_metadata: Metadata including user_id and session_id for Langfuse
         thread_id: Thread ID for session tracking (required for Langfuse session)
+        profession_tag_id: 专业标签 ID（用于 Prompt 路由）
+        business_type_tag_id: 业态标签 ID
+        chapter_name: 当前章节名称
 
     Returns:
         dict: 包含生成结果的字典
@@ -419,7 +426,11 @@ async def generate_chapter_batch(
         "user_id": user_id,
         "retrieved_context": "",
         "draft_content": "",
-        "research_loop_count": 0
+        "research_loop_count": 0,
+        # Prompt 路由字段
+        "profession_tag_id": profession_tag_id,
+        "business_type_tag_id": business_type_tag_id,
+        "chapter_name": chapter_name,
     }
 
     # 准备 config，包含 langfuse_handler、metadata 和 thread_id

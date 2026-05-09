@@ -1,0 +1,38 @@
+[project]
+name = "archspec-agent"
+version = "0.1.0"
+description = "ArchSpec AI Agent - 建筑设计规范智能化系统 Agent 服务"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.110.0",
+    "uvicorn[standard]==0.27.0",
+    "openai==1.58.1",
+    "colorama==0.4.6",
+    "requests>=2.32.5",
+    "python-dotenv==1.0.1",
+    "pydantic==2.10.4",
+    "gunicorn==22.0.0",
+    "dashscope>=1.22.1",
+    "ragflow-sdk==0.24.0",
+    "peewee==3.17.3",
+    "openpyxl",
+    "langfuse>=3.0.0,<4.0.0",
+    "ddgs==9.10.0",
+    "langgraph==1.0.5",
+    "langchain-community==0.4.1",
+    "langchain==1.2.0",
+    "python-multipart==0.0.21",
+    "PyJWT>=2.8.0",
+    "psycopg[binary]>=3.1.0",
+    "langgraph-checkpoint-postgres>=1.0.0",
+    "tiktoken>=0.5.0",
+]
+
+[project.scripts]
+dev = "uvicorn app:app --host 0.0.0.0 --port 5000 --reload --log-level info"
+
+[tool.uv]
+dev-dependencies = [
+    "pyyaml",
+    "rich",
+]

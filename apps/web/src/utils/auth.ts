@@ -122,12 +122,12 @@ export function getAuthorization(): string {
 }
 
 /**
- * 重定向到登录页
+ * 重定向到首页（token 失效时）
  */
 export function redirectToLogin(): void {
   const baseUrl = import.meta.env.BASE_URL || '/';
-  const loginPath = baseUrl.endsWith('/') ? `${baseUrl}login` : `${baseUrl}/login`;
-  window.location.href = `${window.location.origin}${loginPath}`;
+  const homePath = baseUrl.endsWith('/') ? `${baseUrl}home` : `${baseUrl}/home`;
+  window.location.href = `${window.location.origin}${homePath}`;
 }
 
 /**

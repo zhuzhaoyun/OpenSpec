@@ -41,3 +41,19 @@ license:
   enabled: true
   path: ${LICENSE_PATH:license.lic}
 
+# OSS 对象存储配置（用于审查文件上传）
+oss:
+  bucket: ${OSS_BUCKET:}
+  region: ${OSS_REGION:cn-guangzhou}
+  endpoint: ${OSS_ENDPOINT:sts.cn-guangzhou.aliyuncs.com}
+  host: ${OSS_HOST:}
+  upload-dir: ${OSS_UPLOAD_DIR:reviews/}
+  expire-seconds: ${OSS_EXPIRE_SECONDS:3600}
+  sts-role-arn: ${OSS_STS_ROLE_ARN:}
+  access-key-id: ${OSS_ACCESS_KEY_ID:}
+  access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+
+# Application base URL (used to construct Agent-accessible URLs)
+app:
+  base-url: ${APP_BASE_URL:http://java:8080}
+

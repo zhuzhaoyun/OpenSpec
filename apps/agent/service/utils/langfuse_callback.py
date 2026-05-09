@@ -166,7 +166,7 @@ class EnhancedLangfuseHandler(CallbackHandler):
             'currency': 'USD'
         }
         
-        logger.info(
+        logger.debug(
             f"[Enhanced LangFuse] Injected token usage for run {run_id}: "
             f"input={token_usage['input_tokens']}, output={token_usage['output_tokens']}, "
             f"cost=${total_cost:.6f}"
@@ -187,7 +187,7 @@ class EnhancedLangfuseHandler(CallbackHandler):
         input_tokens = sum(self.token_counter.count_tokens(prompt) for prompt in prompts)
         self._store_input_tokens(run_id, input_tokens)
         
-        logger.info(f"[Enhanced LangFuse] LLM start - Input tokens: {input_tokens} (run_id: {run_id})")
+        logger.debug(f"[Enhanced LangFuse] LLM start - Input tokens: {input_tokens} (run_id: {run_id})")
     
     def on_llm_end(self, response: LLMResult, *, run_id: Any, 
                    parent_run_id: Optional[Any] = None, **kwargs: Any) -> None:
@@ -209,7 +209,7 @@ class EnhancedLangfuseHandler(CallbackHandler):
             self._current_generation_tokens[run_id_str]['total_tokens'] += output_tokens
             self.total_output_tokens += output_tokens
         
-        logger.info(f"[Enhanced LangFuse] LLM end - Output tokens: {output_tokens} (run_id: {run_id})")
+        logger.debug(f"[Enhanced LangFuse] LLM end - Output tokens: {output_tokens} (run_id: {run_id})")
         
         # 关键步骤：注入 token 统计到 response
         self._inject_token_usage(response, run_id)
@@ -239,7 +239,7 @@ class EnhancedLangfuseHandler(CallbackHandler):
         )
         self._store_input_tokens(run_id, input_tokens)
         
-        logger.info(f"[Enhanced LangFuse] Chat model start - Input tokens: {input_tokens} (run_id: {run_id})")
+        logger.debug(f"[Enhanced LangFuse] Chat model start - Input tokens: {input_tokens} (run_id: {run_id})")
     
     def calculate_cost(self, tokens: int, is_input: bool = True) -> float:
         """

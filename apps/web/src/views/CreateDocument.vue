@@ -45,10 +45,8 @@ const router = useRouter()
 
 const userInfo = computed(() => authStorage.getUserInfo())
 const userId = computed(() => {
-  const name = userInfo.value?.name
-  const email = userInfo.value?.email
-  const id = userInfo.value?.id
-  return name || email || id || ''
+  const info = userInfo.value
+  return info?.id || ''
 })
 
 // ========== 向导状态 ==========

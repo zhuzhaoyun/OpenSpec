@@ -30,8 +30,8 @@
           </div>
           <div class="project-actions" v-if="p.id === activeId">
             <div class="qa-actions-line">
-              <el-button 
-                size="small" 
+              <el-button
+                size="small"
                 link
                 class="qa-btn"
                 @click.stop="toggleSessions(p.id)"
@@ -42,12 +42,23 @@
                   <component :is="expandedProjectId === p.id ? 'ArrowUp' : 'ArrowDown'" />
                 </el-icon>
               </el-button>
-              <el-button 
-                size="small" 
-                link
-                class="create-session-btn"
-                @click.stop="$emit('create-session', p.id)"
-              >新增</el-button>
+              <div class="actions-right">
+                <el-button
+                  size="small"
+                  link
+                  class="create-session-btn"
+                  @click.stop="$emit('create-session', p.id)"
+                >新增</el-button>
+                <el-button
+                  size="small"
+                  link
+                  type="danger"
+                  class="delete-btn"
+                  @click.stop="$emit('delete', p.id)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -57,14 +68,33 @@
           v-show="expandedProjectId === p.id && p.sessionList?.length" 
           class="session-list"
         >
-          <div 
-            v-for="(session, idx) in p.sessionList" 
+          <div
+            v-for="(session, idx) in p.sessionList"
             :key="idx"
             class="session-item"
             @click.stop="handleSessionClick(p.id, session)"
           >
             <el-icon class="session-icon"><ChatDotRound /></el-icon>
             <span class="session-name">{{ session.name }}</span>
+            <el-dropdown
+              trigger="click"
+              @command="(cmd: string) => handleSessionCommand(cmd, p.id, session)"
+              @click.stop
+            >
+              <span class="session-more-btn" @click.stop>
+                <el-icon><MoreFilled /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="rename">
+                    <el-icon><Edit /></el-icon>重命名
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete" divided>
+                    <el-icon><Delete /></el-icon>删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </div>
@@ -75,7 +105,7 @@
 <script setup lang="ts">
 import type { ProjectItem } from '@/data/mockData'
 import { ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, ChatDotRound, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp, ChatDotRound, Plus, Delete, MoreFilled, Edit } from '@element-plus/icons-vue'
 
 interface Props {
   projects: ProjectItem[]
@@ -87,8 +117,11 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'select', projectId: string): void
   (e: 'create'): void
+  (e: 'delete', projectId: string): void
   (e: 'select-session', projectId: string, session: any): void
   (e: 'create-session', projectId: string): void
+  (e: 'rename-session', projectId: string, session: any): void
+  (e: 'delete-session', projectId: string, session: any): void
 }>()
 
 const expandedProjectId = ref<string | null>(null)
@@ -109,6 +142,14 @@ const handleSessionClick = (projectId: string, session: any) => {
   emit('select-session', projectId, session)
 }
 
+const handleSessionCommand = (command: string, projectId: string, session: any) => {
+  if (command === 'rename') {
+    emit('rename-session', projectId, session)
+  } else if (command === 'delete') {
+    emit('delete-session', projectId, session)
+  }
+}
+
 // Optional: Auto-expand active project if it has sessions?
 // For now, respect user's manual toggle as requested.
 </script>
@@ -120,9 +161,10 @@ const handleSessionClick = (projectId: string, session: any) => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 .project-list-header {
-  padding: 16px 20px;
+  padding: 12px 14px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   display: flex;
@@ -147,15 +189,15 @@ const handleSessionClick = (projectId: string, session: any) => {
 .project-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 8px 10px;
 }
 .project-group {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .project-item {
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -176,20 +218,23 @@ const handleSessionClick = (projectId: string, session: any) => {
   min-width: 0;
 }
 .project-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-bottom: 4px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
 }
 .project-meta {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #9ca3af;
 }
 .qa-btn {
   display: flex;
@@ -198,13 +243,14 @@ const handleSessionClick = (projectId: string, session: any) => {
 }
 .project-actions {
   width: 100%;
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid rgba(0, 0, 0, 0.04);
 }
 .qa-actions-line {
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 .session-count {
   margin-left: 6px;
@@ -216,28 +262,63 @@ const handleSessionClick = (projectId: string, session: any) => {
   line-height: 1;
 }
 .create-session-btn {
-  margin-left: 8px;
+  margin-left: 0;
+}
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.delete-btn {
+  padding: 4px;
 }
 .session-list {
-  margin-top: 4px;
-  margin-left: 16px;
-  padding-left: 12px;
+  margin-top: 2px;
+  margin-left: 12px;
+  padding-left: 10px;
   border-left: 2px solid #e5e7eb;
 }
 .session-item {
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 6px 10px;
+  font-size: 12px;
   color: #4b5563;
   cursor: pointer;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
 }
 .session-item:hover {
   background: #f3f4f6;
   color: var(--primary-color, #4f46e5);
+}
+.session-item:hover .session-more-btn {
+  opacity: 1;
+}
+.session-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-more-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+  color: #9ca3af;
+}
+.session-more-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
 }
 .session-icon {
   font-size: 14px;

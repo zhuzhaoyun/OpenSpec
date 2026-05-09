@@ -256,3 +256,169 @@ DO $$
 BEGIN
     RAISE NOTICE 'Database schema initialized successfully!';
 END $$;
+
+-- ============================================
+-- 7. 用户记忆表（长期记忆 - pgvector）
+-- ============================================
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS user_memory (
+  id BIGSERIAL PRIMARY KEY,
+  user_id VARCHAR(50) NOT NULL,
+  content TEXT NOT NULL,
+  embedding vector(1024),
+  chapter_name VARCHAR(200),
+  source_type VARCHAR(50) DEFAULT 'requirement',
+  category VARCHAR(50) DEFAULT 'other',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_memory_user_id ON user_memory(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_memory_source_type ON user_memory(user_id, source_type);
+
+-- 兼容升级：已有表添加 category 列
+ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'other';
+
+-- ============================================
+-- 8. 操作记录表
+-- ============================================
+CREATE TABLE IF NOT EXISTS operation_record (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       VARCHAR(50)   NOT NULL,
+    document_id   VARCHAR(100)  NOT NULL,
+    chapter_name  VARCHAR(200),
+    action_type   VARCHAR(50)   NOT NULL,
+    action_detail TEXT,
+    context       JSONB         DEFAULT '{}',
+    created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_operation_record_user_id ON operation_record(user_id);
+CREATE INDEX IF NOT EXISTS idx_operation_record_document ON operation_record(user_id, document_id);
+CREATE INDEX IF NOT EXISTS idx_operation_record_action ON operation_record(user_id, action_type);
+CREATE INDEX IF NOT EXISTS idx_operation_record_time ON operation_record(created_at DESC);
+
+-- ============================================
+-- 9. 标准表（规范标准库）
+-- ============================================
+CREATE TABLE IF NOT EXISTS standard (
+  id VARCHAR(50) PRIMARY KEY,
+  number VARCHAR(100) NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  profession VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'superseded')),
+  superseded_by VARCHAR(200),
+  description TEXT,
+  user_id VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_standard_profession ON standard(profession);
+CREATE INDEX IF NOT EXISTS idx_standard_number ON standard(number);
+CREATE INDEX IF NOT EXISTS idx_standard_status ON standard(status);
+
+DROP TRIGGER IF EXISTS update_standard_updated_at ON standard;
+CREATE TRIGGER update_standard_updated_at
+    BEFORE UPDATE ON standard
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- 10. 条文表
+CREATE TABLE IF NOT EXISTS clause (
+  id VARCHAR(50) PRIMARY KEY,
+  standard_id VARCHAR(50) NOT NULL,
+  clause_number VARCHAR(50),
+  title VARCHAR(200),
+  content TEXT,
+  tags JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_clause_standard FOREIGN KEY (standard_id) REFERENCES standard(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_clause_standard_id ON clause(standard_id);
+CREATE INDEX IF NOT EXISTS idx_clause_clause_number ON clause(clause_number);
+
+DROP TRIGGER IF EXISTS update_clause_updated_at ON clause;
+CREATE TRIGGER update_clause_updated_at
+    BEFORE UPDATE ON clause
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- 11. 检查点表
+CREATE TABLE IF NOT EXISTS checkpoint (
+  id VARCHAR(50) PRIMARY KEY,
+  clause_id VARCHAR(50) NOT NULL,
+  description TEXT,
+  severity VARCHAR(20) DEFAULT 'warning' CHECK (severity IN ('critical', 'warning', 'suggestion')),
+  match_keywords JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_checkpoint_clause FOREIGN KEY (clause_id) REFERENCES clause(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoint_clause_id ON checkpoint(clause_id);
+
+DROP TRIGGER IF EXISTS update_checkpoint_updated_at ON checkpoint;
+CREATE TRIGGER update_checkpoint_updated_at
+    BEFORE UPDATE ON checkpoint
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- 12. 审查记录表
+CREATE TABLE IF NOT EXISTS review_record (
+  id VARCHAR(50) PRIMARY KEY,
+  user_id VARCHAR(50) NOT NULL,
+  document_name VARCHAR(200),
+  content TEXT,
+  dimensions JSONB DEFAULT '[]',
+  standard_ids JSONB DEFAULT '[]',
+  summary JSONB DEFAULT '{}',
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+  error_message TEXT,
+  external_request_id VARCHAR(100),
+  oss_file_key VARCHAR(512),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_record_user_id ON review_record(user_id);
+CREATE INDEX IF NOT EXISTS idx_review_record_status ON review_record(status);
+CREATE INDEX IF NOT EXISTS idx_review_record_created_at ON review_record(created_at DESC);
+
+DROP TRIGGER IF EXISTS update_review_record_updated_at ON review_record;
+CREATE TRIGGER update_review_record_updated_at
+    BEFORE UPDATE ON review_record
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Clawith integration columns
+ALTER TABLE review_record ADD COLUMN IF NOT EXISTS access_token VARCHAR(50);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_access_token ON review_record(access_token);
+
+ALTER TABLE review_record ADD COLUMN IF NOT EXISTS clawith_session_id VARCHAR(50);
+CREATE INDEX IF NOT EXISTS idx_review_clawith_session ON review_record(clawith_session_id);
+
+-- 13. 审查问题表
+CREATE TABLE IF NOT EXISTS review_issue (
+  id VARCHAR(50) PRIMARY KEY,
+  record_id VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) CHECK (severity IN ('critical', 'warning', 'suggestion')),
+  dimension VARCHAR(20) CHECK (dimension IN ('compliance', 'completeness', 'terminology', 'consistency')),
+  title VARCHAR(200),
+  description TEXT,
+  original_snippet TEXT,
+  snippet_start INT,
+  chapter_ref VARCHAR(200),
+  standard_ref VARCHAR(200),
+  standard_clause VARCHAR(50),
+  standard_text TEXT,
+  suggestion_text TEXT,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'ignored')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_review_issue_record FOREIGN KEY (record_id) REFERENCES review_record(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_issue_record_id ON review_issue(record_id);
+CREATE INDEX IF NOT EXISTS idx_review_issue_status ON review_issue(record_id, status);

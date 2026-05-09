@@ -35,6 +35,9 @@ import HelpCenter from '../components/HelpCenter.vue'
 import DocumentCardList from '../components/DocumentCardList.vue'
 import Settings from '../views/Settings.vue'
 import MemoryManagement from '../views/MemoryManagement.vue'
+import ProjectQA from '../views/ProjectQA.vue'
+import StandardClauses from '../views/StandardClauses.vue'
+import ReviewList from '../views/ReviewList.vue'
 import { type DocumentItem, type ProjectInfo } from '../data/mockData'
 import {
   renameDocument as renameDocumentApi,
@@ -68,7 +71,7 @@ const userInfo = computed(() => {
 })
 const userId = computed(() => {
   const info = userInfo.value
-  return info?.name || info?.email || info?.id || ''
+  return info?.id || ''
 })
 const userDisplayName = computed(() =>
   userInfo.value?.nickname || userInfo.value?.name || '用户'
@@ -118,6 +121,8 @@ const menuGroups: MenuGroup[] = [
     label: '工具',
     items: [
       { key: 'templates', label: '模板管理', icon: Files, requiresAuth: true, action: 'view' },
+      { key: 'review', label: '规范审查', icon: Edit, requiresAuth: true, action: 'view' },
+      { key: 'clauses', label: '规范条文', icon: Reading, requiresAuth: true, action: 'view' },
       { key: 'memory', label: '记忆管理', icon: Coin, requiresAuth: true, action: 'view' },
     ]
   },
@@ -125,7 +130,6 @@ const menuGroups: MenuGroup[] = [
     label: '更多',
     items: [
       { key: 'qa', label: '规范问答', icon: ChatLineRound, requiresAuth: false, action: 'view', comingSoon: true },
-      { key: 'knowledge', label: '规范知识库', icon: Reading, requiresAuth: false, action: 'view', comingSoon: true },
       { key: 'statistics', label: '数据统计', icon: DataAnalysis, requiresAuth: false, action: 'view', comingSoon: true },
       { key: 'help', label: '帮助中心', icon: QuestionFilled, requiresAuth: false, action: 'view' },
     ]
@@ -460,6 +464,8 @@ const showNotification = (message: string, type: 'success' | 'info' | 'warning' 
 const loadDocumentList = async () => {
   if (!userId.value) {
     loadingDocuments.value = false
+    ElMessage.warning('无法获取用户信息，请重新登录')
+    console.warn('userId is empty, cannot load document list')
     return
   }
 
@@ -697,12 +703,12 @@ onMounted(async () => {
                 <div class="action-card-desc">查看和管理已有文档</div>
               </div>
             </div>
-            <div class="action-card coming-soon" @click="handleMenuClick(findMenuItem('qa'))">
+            <div class="action-card" @click="handleMenuClick(findMenuItem('qa'))">
               <div class="action-card-icon" style="background: #FFFBEB; color: #D97706;">
                 <el-icon :size="24"><ChatLineRound /></el-icon>
               </div>
               <div class="action-card-body">
-                <div class="action-card-title">规范问答 <el-tag size="small" type="info">待开发</el-tag></div>
+                <div class="action-card-title">规范问答</div>
                 <div class="action-card-desc">AI智能规范检索与问答</div>
               </div>
             </div>
@@ -808,9 +814,24 @@ onMounted(async () => {
         <Settings @navigate="handleSettingsNavigate" />
       </div>
 
+      <!-- ===== QA 视图 ===== -->
+      <div v-else-if="activeView === 'qa' && !activeViewItem?.comingSoon" class="qa-view">
+        <ProjectQA />
+      </div>
+
       <!-- ===== Memory Management 视图 ===== -->
       <div v-else-if="activeView === 'memory'" class="memory-view">
         <MemoryManagement />
+      </div>
+
+      <!-- ===== Standard Clauses 视图 ===== -->
+      <div v-else-if="activeView === 'clauses'" class="clauses-view">
+        <StandardClauses />
+      </div>
+
+      <!-- ===== Review 视图 ===== -->
+      <div v-else-if="activeView === 'review'" class="review-view">
+        <ReviewList />
       </div>
 
       <div v-else-if="activeView === 'help'" class="help-view">
@@ -981,6 +1002,8 @@ onMounted(async () => {
   min-width: 0;
   overflow-y: auto;
   background: var(--gray-50, #f9fafb);
+  display: flex;
+  flex-direction: column;
 }
 
 .main-header {
@@ -1388,7 +1411,9 @@ onMounted(async () => {
 .documents-view {
   padding: 28px 32px;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .documents-view-header {
@@ -1497,8 +1522,49 @@ onMounted(async () => {
 .templates-view {
   padding: 28px 32px;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
   height: calc(100% - 56px);
+}
+
+/* ===== Memory 视图 ===== */
+.memory-view {
+  padding: 28px 32px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ===== Clauses 视图 ===== */
+.clauses-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== QA 视图 ===== */
+.qa-view {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Review 视图 ===== */
+.review-view {
+  padding: 28px 32px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ===== Coming Soon 视图 ===== */

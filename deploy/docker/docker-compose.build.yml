@@ -4,6 +4,11 @@ services:
     build:
       context: ../../apps/web
       dockerfile: docker/Dockerfile
+      args:
+        VITE_CLAWITH_BASE_URL: ${VITE_CLAWITH_BASE_URL}
+        VITE_CLAWITH_AGENT_ID: ${VITE_CLAWITH_AGENT_ID}
+        VITE_CLAWITH_EMAIL: ${VITE_CLAWITH_EMAIL}
+        VITE_CLAWITH_PASSWORD: ${VITE_CLAWITH_PASSWORD}
     image: ${DOCKER_REGISTRY:-}archspec-web:${TAG:-latest}
 
   # 2. Backend (Java)
