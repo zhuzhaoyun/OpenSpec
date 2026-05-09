@@ -1,11 +1,15 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import MarkdownIt from 'markdown-it';
 
 const props = defineProps({
   content: {
     type: String,
     default: ''
+  },
+  streaming: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -16,7 +20,11 @@ const md = new MarkdownIt({
 });
 
 const renderedContent = computed(() => {
-  return md.render(props.content);
+  const html = md.render(props.content);
+  if (props.streaming) {
+    return html + '<span class="typing-cursor"></span>';
+  }
+  return html;
 });
 </script>
 
@@ -89,5 +97,20 @@ const renderedContent = computed(() => {
 
 .markdown-body a:hover {
   text-decoration: underline;
+}
+
+.markdown-body :deep(.typing-cursor) {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--primary-color, #4f46e5);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 0.8s steps(2) infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>

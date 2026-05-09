@@ -4,6 +4,7 @@
 """
 import os
 import sys
+import re
 import json
 import traceback
 from time import time
@@ -23,7 +24,7 @@ from service.workflow.construction_agent import (
     app as agent_app,
 )
 from service.workflow.batch_construction_agent import generate_chapter_batch
-from service.tools.construction_tools import set_request_kb_ids, clear_request_kb_ids
+from service.tools.construction_tools import set_request_kb_ids, clear_request_kb_ids, get_reference_pool
 from service.tools.kb_resolver import resolve as resolve_kb
 from service.memory.memory_service import save_memory, recall_memories
 # from service.db.database import get_kb_id_by_project_id
@@ -123,6 +124,7 @@ class WorkflowChatRequest(BaseModel):
     project_info: Optional[str] = None
     user_id: Optional[str] = "default_user"
     enable_audit: Optional[bool] = False  # 是否启用 Auditor 校验
+    enable_citation: Optional[bool] = True  # 是否启用引用标记（注入引用 prompt 并返回 reference 事件）
 
     # 新增字段：支持记忆功能
     document_id: Optional[str] = None  # 文档 ID（用作 thread_id）
@@ -384,6 +386,8 @@ async def event_generator(inputs, config=None):
 
     # 获取审核开关状态
     enable_audit = inputs.get("enable_audit", False)
+    # 获取引用标记开关状态
+    enable_citation = inputs.get("enable_citation", True)
 
     # 从 construction_agent 导入 MAX_AUDIT_LOOPS
     from service.workflow.construction_agent import MAX_AUDIT_LOOPS
@@ -408,6 +412,9 @@ async def event_generator(inputs, config=None):
 
     # 跟踪最近活跃的 step_id（用于关联工具调用）
     current_active_step_id: str = None
+
+    # 累积 generate 节点输出的完整内容（用于引用检测）
+    accumulated_generate_content: str = ""
 
     # Keep-alive configuration
     last_ping_time = import_time()
@@ -444,7 +451,7 @@ async def event_generator(inputs, config=None):
                     # 获取当前节点名称
                     metadata = event.get("metadata", {})
                     node_name = metadata.get("langgraph_node", "")
-                    logger.info(f"[on_chat_model_stream] node={node_name}, content_length={len(chunk.content)}")
+                    logger.debug(f"[on_chat_model_stream] node={node_name}, content_length={len(chunk.content)}")
 
                     # 检查是否为思考过程
                     tags = event.get("tags", [])
@@ -482,6 +489,7 @@ async def event_generator(inputs, config=None):
                         streamed_run_ids.add(run_id)  # 只有在实际发送后才标记为已流式
                         if node_name == "generate":
                             generate_tokens_emitted = True
+                            accumulated_generate_content += chunk.content
                         logger.debug(f"[on_chat_model_stream] Sending token for {node_name}")
                         yield _sse(
                             "token",
@@ -500,7 +508,7 @@ async def event_generator(inputs, config=None):
                     if output and hasattr(output, "content") and output.content:
                         metadata = event.get("metadata", {})
                         node_name = metadata.get("langgraph_node", "")
-                        logger.info(f"[on_chat_model_end] node_name={node_name}, content_length={len(output.content)}")
+                        logger.debug(f"[on_chat_model_end] node_name={node_name}, content_length={len(output.content)}")
 
                         if node_name == "router":
                             continue
@@ -520,7 +528,8 @@ async def event_generator(inputs, config=None):
                         # 因为 generate 节点使用同步 invoke，不会产生 on_chat_model_stream 事件
                         if node_name == "generate":
                             generate_tokens_emitted = True
-                            logger.info(f"[on_chat_model_end] Sending token for generate node, content_length={len(output.content)}")
+                            accumulated_generate_content += output.content
+                            logger.debug(f"[on_chat_model_end] Sending token for generate node, content_length={len(output.content)}")
                             yield _sse("token", {
                                 "content": output.content,
                                 "node": node_name,
@@ -577,6 +586,7 @@ async def event_generator(inputs, config=None):
                             "node": "generate",
                             "timestamp": import_time()
                         })
+                        accumulated_generate_content += raw_thought
                         generate_tokens_emitted = True
                 
                 # 计算耗时
@@ -708,6 +718,26 @@ async def event_generator(inputs, config=None):
             error_data = _format_error_message(e)
             yield _sse("error", error_data)
 
+    # 引用检测：如果启用引用标记且生成内容中包含 [ID:xxx]，发送引用元数据事件
+    if enable_citation and accumulated_generate_content and re.search(r"\[ID:[ 0-9]+\]", accumulated_generate_content):
+        ref_pool = get_reference_pool()
+        if ref_pool and ref_pool.get("chunks"):
+            # 转换为前端期望的格式
+            chunk_reference = list(ref_pool["chunks"].values())
+            # doc_aggs 按 count 降序排列（最相关的文档排在前面）
+            doc_aggs = sorted(
+                ref_pool.get("doc_aggs", {}).values(),
+                key=lambda x: x.get("count", 0),
+                reverse=True
+            )
+            logger.info(f"[Citation] Detected citations in output, sending {len(chunk_reference)} chunks, {len(doc_aggs)} docs")
+            yield _sse("reference", {
+                "chunk_reference": chunk_reference,
+                "doc_aggs": doc_aggs,
+            })
+        else:
+            logger.warning("[Citation] Citations detected in output but reference pool is empty")
+
     # 发送结束事件
     yield _sse("done", {"timestamp": import_time()})
 
@@ -793,7 +823,11 @@ async def workflow_chat_batch(request: WorkflowBatchRequest, http_request: Reque
             user_id=request.user_id,
             langfuse_handler=langfuse_handler,
             langfuse_metadata=langfuse_metadata,
-            thread_id=thread_id  # 传递 thread_id 以支持 Langfuse session
+            thread_id=thread_id,  # 传递 thread_id 以支持 Langfuse session
+            # Prompt 路由所需的标签
+            profession_tag_id=request.profession_tag_id or 0,
+            business_type_tag_id=request.business_type_tag_id or 0,
+            chapter_name=request.chapter_name or "",
         )
 
         # 刷新 Langfuse 数据
@@ -904,7 +938,12 @@ async def workflow_chat_stream(request: WorkflowChatRequest, http_request: Reque
         "research_loop_count": 0,
         "audit_loop_count": 0,
         "auditor_tool_call_count": 0,  # 防止 Auditor 工具调用无限循环
-        "enable_audit": request.enable_audit
+        "enable_audit": request.enable_audit,
+        "enable_citation": request.enable_citation,
+        # Prompt 路由所需的标签
+        "profession_tag_id": request.profession_tag_id or 0,
+        "business_type_tag_id": request.business_type_tag_id or 0,
+        "chapter_name": request.chapter_name or "",
     }
 
     logger.info("[workflow_chat_stream] 开始流式响应")

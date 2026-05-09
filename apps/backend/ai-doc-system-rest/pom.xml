@@ -75,6 +75,18 @@
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- Alibaba Cloud OSS SDK（用于 OSS V4 签名） -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
+        <!-- Alibaba Cloud STS SDK（用于 AssumeRole 获取临时凭证） -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>sts20150401</artifactId>
+            <version>1.1.6</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

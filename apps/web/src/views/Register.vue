@@ -79,7 +79,7 @@
           </div>
 
           <div class="form-item register-link">
-            已有账户？<router-link to="/login">返回登录</router-link>
+            已有账户？<router-link to="/home">返回首页</router-link>
           </div>
         </form>
       </div>

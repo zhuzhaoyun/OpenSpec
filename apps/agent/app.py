@@ -20,9 +20,11 @@ from api.file_api import file_router
 from api.workflow_api import workflow_router
 from api.template_api import template_router
 from api.memory_api import memory_router
+from api.operation_api import operation_router
 from middleware.jwt_auth import JwtAuthMiddleware
 from utils.logger import setup_logger
 from service.memory.memory_service import ensure_table as ensure_memory_table
+from service.operation.operation_service import ensure_table as ensure_operation_table
 
 # 加载环境变量
 load_dotenv()
@@ -42,6 +44,11 @@ async def lifespan(app: FastAPI):
         logger.info("Memory table initialized")
     except Exception as e:
         logger.warning(f"Memory table init failed (non-fatal): {e}")
+    try:
+        ensure_operation_table()
+        logger.info("Operation record table initialized")
+    except Exception as e:
+        logger.warning(f"Operation record table init failed (non-fatal): {e}")
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -103,6 +110,7 @@ app.include_router(file_router)
 app.include_router(workflow_router)
 app.include_router(template_router)
 app.include_router(memory_router)
+app.include_router(operation_router)
 
 
 @app.get('/agent/test')

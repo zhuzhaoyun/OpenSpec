@@ -55,4 +55,34 @@ public class UserServiceImpl implements UserService {
     public Optional<User> findById(String id) {
         return Optional.ofNullable(userMapper.selectById(id));
     }
+
+    @Override
+    public User updateProfile(String userId, String nickname) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        user.setNickname(nickname);
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+        return user;
+    }
+
+    @Override
+    public void changePassword(String userId, String oldPassword, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        // 演示账号不允许修改密码
+        if ("test@qq.com".equals(user.getEmail())) {
+            throw new IllegalArgumentException("演示账号不支持修改密码");
+        }
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalArgumentException("当前密码错误");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+    }
 }

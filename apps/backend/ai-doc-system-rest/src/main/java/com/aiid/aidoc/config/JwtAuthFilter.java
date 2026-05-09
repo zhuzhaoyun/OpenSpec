@@ -2,6 +2,7 @@ package com.aiid.aidoc.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,22 +42,26 @@ public class JwtAuthFilter implements Filter {
         }
 
         String token = authHeader.substring(7);
+        Claims claims;
         try {
-            Claims claims = jwtUtil.parseToken(token);
-            req.setAttribute("userId", claims.getSubject());
-            req.setAttribute("email", claims.get("email", String.class));
-            chain.doFilter(request, response);
-        } catch (Exception e) {
+            claims = jwtUtil.parseToken(token);
+        } catch (JwtException | IllegalArgumentException e) {
             log.warn("JWT 验证失败: {}", e.getMessage());
             sendUnauthorized(res, "认证信息无效或已过期");
+            return;
         }
+
+        req.setAttribute("userId", claims.getSubject());
+        req.setAttribute("email", claims.get("email", String.class));
+        chain.doFilter(request, response);
     }
 
     private boolean isPublicPath(String path) {
         return path.endsWith("/user/login")
                 || path.endsWith("/user/register")
                 || path.contains("/templates/example/")
-                || path.contains("/actuator");
+                || path.contains("/actuator")
+                || path.contains("/reviews/") && (path.contains("/manifest") || path.contains("/source-file") || path.contains("/standards-file"));
     }
 
     private void sendUnauthorized(HttpServletResponse res, String message) throws IOException {

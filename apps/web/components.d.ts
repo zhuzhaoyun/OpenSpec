@@ -11,17 +11,24 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppHeader: typeof import('./src/components/AppHeader.vue')['default']
     ChatAssistant: typeof import('./src/components/ChatAssistant.vue')['default']
+    DocumentCardList: typeof import('./src/components/DocumentCardList.vue')['default']
     DocumentList: typeof import('./src/components/DocumentList.vue')['default']
     DocumentOutline: typeof import('./src/components/DocumentOutline.vue')['default']
     EditableTable: typeof import('./src/components/EditableTable.vue')['default']
     EmptyChapter: typeof import('./src/components/EmptyChapter.vue')['default']
     HeaderLogo: typeof import('./src/components/HeaderLogo.vue')['default']
+    HelpCenter: typeof import('./src/components/HelpCenter.vue')['default']
+    LicenseInfoDialog: typeof import('./src/components/LicenseInfoDialog.vue')['default']
+    LoginDialog: typeof import('./src/components/LoginDialog.vue')['default']
     MarkdownEditor: typeof import('./src/components/MarkdownEditor.vue')['default']
     MarkdownRenderer: typeof import('./src/components/MarkdownRenderer.vue')['default']
+    ProfileDialog: typeof import('./src/components/ProfileDialog.vue')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     RecognizeResultDrawer: typeof import('./src/components/RecognizeResultDrawer.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UserDropdown: typeof import('./src/components/UserDropdown.vue')['default']
   }
 }

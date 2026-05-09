@@ -56,23 +56,29 @@ class TemplateMatcherService:
 
             # 1. 获取模板知识库ID
             kb_ids = self._get_template_kb_ids()
+
             if not kb_ids:
                 logger.error(f"未找到模板知识库 '{PERSONAL_TEMPLATE_KB_NAME}'")
                 return {'matched': None, 'alternatives': []}
 
-            # 2. 构建权限过滤条件
+            # 2. 构建权限过滤条件（用于日志记录，实际使用后过滤）
             metadata_condition = self._build_permission_filter(user_id)
+            logger.info(f"[模板匹配] 检索参数: kb_ids={kb_ids}, 权限过滤: {metadata_condition['logic']} 条件")
 
             # 3. 向量检索
+            # 注意：RAGFlow SDK 0.24.0 的 metadata_condition 参数存在问题（返回空结果）
+            # 因此采用后过滤策略：先检索更多 chunk，再在代码中进行权限和标签过滤
+            retrieve_page_size = max(limit * 4, 20)  # 增加检索数量以补偿后过滤
+
             try:
                 chunks = self.rag.retrieve(
                     question=chapter_title,
                     dataset_ids=kb_ids,
                     page=1,
-                    page_size=limit * 2,
-                    similarity_threshold=threshold,
-                    metadata_condition=metadata_condition
+                    page_size=retrieve_page_size,
+                    similarity_threshold=threshold
                 )
+                logger.info(f"[模板匹配] RAGFlow 检索到 {len(chunks) if chunks else 0} 个 chunk（未过滤）")
             except TypeError as e:
                 logger.error(f"检索失败 (SDK不支持metadata_condition): {e}")
                 return {'matched': None, 'alternatives': []}
@@ -84,10 +90,35 @@ class TemplateMatcherService:
                 logger.info(f"[模板匹配] 未检索到结果")
                 return {'matched': None, 'alternatives': []}
 
-            # 4. 处理所有返回的 chunk（RAGFlow 已按相似度排序）
+            # 4. 权限后过滤：根据 metadata 过滤 chunk
+            filtered_chunks = []
+            for chunk in chunks:
+                doc_id = getattr(chunk, 'document_id', None)
+                if not doc_id:
+                    continue
+
+                # 获取文档的 meta_fields
+                doc_meta = self._get_document_meta_fields(doc_id)
+
+                # 权限检查：isStandard="true" OR userId=user_id
+                is_standard = doc_meta.get('isStandard', '') == 'true'
+                is_owner = doc_meta.get('userId', '') == user_id
+
+                if is_standard or is_owner:
+                    filtered_chunks.append(chunk)
+
+            logger.info(f"[模板匹配] 权限过滤后剩余 {len(filtered_chunks)} 个 chunk")
+
+            if not filtered_chunks:
+                logger.info(f"[模板匹配] 权限过滤后无结果")
+                return {'matched': None, 'alternatives': []}
+
+            chunks = filtered_chunks
+
+            # 5. 处理所有返回的 chunk（RAGFlow 已按相似度排序）
             chunks_to_process = chunks[:limit * 2]  # 获取更多 chunk 以便合并
 
-            # 5. 工具函数
+            # 6. 工具函数
             def safe_get(obj, key, default=''):
                 """安全获取属性值，确保返回可序列化的基本类型"""
                 try:
@@ -103,7 +134,7 @@ class TemplateMatcherService:
                 except Exception:
                     return default
 
-            # 6. 按文档分组并合并同一文档的 chunk 内容
+            # 7. 按文档分组并合并同一文档的 chunk 内容
             doc_chunks_map = {}  # {doc_id: {'chunks': [...], 'meta': {...}, 'max_similarity': float}}
 
             for chunk in chunks_to_process:
@@ -127,7 +158,7 @@ class TemplateMatcherService:
                     similarity
                 )
 
-            # 7. 标签后过滤：按 profession / business_type 字段独立匹配
+            # 8. 标签后过滤：按 profession / business_type 字段独立匹配
             if (profession_tag_id or business_type_tag_id) and doc_chunks_map:
                 filtered_map = {}
                 for doc_id, doc_data in doc_chunks_map.items():
@@ -152,11 +183,12 @@ class TemplateMatcherService:
                     logger.info(f"[标签过滤] profession={profession_tag_id}, business_type={business_type_tag_id}, "
                                f"无匹配文档, 回退到全量结果 ({len(doc_chunks_map)} 个文档)")
 
-            # 8. 合并每个文档的 chunk 内容
+            # 9. 合并每个文档的 chunk 内容
             def build_merged_result(_doc_id, doc_data):
                 """合并同一文档的多个 chunk，提取目标章节内容"""
                 doc_meta = doc_data['meta']
                 all_contents = []
+                raw_contents = []  # 保留原始内容作为 fallback
 
                 # 第一步：确定目标章节号（优先从包含标题文本的 chunk 中提取）
                 target_main_chapter = None
@@ -181,6 +213,8 @@ class TemplateMatcherService:
                     if not content:
                         continue
 
+                    raw_contents.append(content)
+
                     filtered = ChapterExtractor.extract_chapter_content(
                         content=content,
                         target_chapter_title=chapter_title,
@@ -196,7 +230,13 @@ class TemplateMatcherService:
                         all_contents.append(filtered)
 
                 merged_content = self._merge_chunk_contents(all_contents)
-                logger.info(f"[合并] 章节{target_main_chapter}: {len(doc_data['chunks'])}个chunk → {len(all_contents)}个 → {len(merged_content)}字符")
+
+                # Fallback: 章节提取后内容为空，直接使用原始 chunk 内容
+                if not merged_content.strip() and raw_contents:
+                    merged_content = self._merge_chunk_contents(raw_contents)
+                    logger.info(f"[合并] 章节提取为空，回退到原始内容: {len(doc_data['chunks'])}个chunk → {len(merged_content)}字符")
+                else:
+                    logger.info(f"[合并] 章节{target_main_chapter}: {len(doc_data['chunks'])}个chunk → {len(all_contents)}个 → {len(merged_content)}字符")
 
                 return {
                     'templateId': int(doc_meta.get('templateId', 0)) if doc_meta.get('templateId') else 0,
@@ -403,3 +443,4 @@ class TemplateMatcherService:
                     merged_lines.append(line)
 
         return '\n'.join(merged_lines)
+

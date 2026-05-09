@@ -1,0 +1,230 @@
+1.## CHAT ASSISTANT MANAGEMENT
+### Create chat assistant
+RAGFlow.create_chat(
+    name: str,
+    icon: str = "",
+    dataset_ids: list[str] | None = None,
+    llm_id: str | None = None,
+    llm_setting: dict | None = None,
+    prompt_config: dict | None = None,
+    **kwargs
+) -> Chat
+
+Creates a chat assistant.
+
+### Parameters
+name: string, Required
+The name of the chat assistant.
+
+icon: string
+Base64 encoding of the avatar. Defaults to "".
+
+dataset_ids: list[str]
+The IDs of the associated datasets. Defaults to []. When omitted or empty, the SDK creates an empty chat assistant and you can attach datasets later.
+
+llm_id: str | None
+The LLM model name/ID to use. If None, the user’s default chat model is used. Defaults to None.
+
+llm_setting: dict | None
+Configuration for LLM generation parameters. Defaults to None (server-side defaults apply). Supported keys:
+
+"temperature": float Controls the randomness of the model's output. Higher values increase creativity, while lower values make responses more deterministic. Defaults to 0.1.
+"top_p": float Sets the nucleus sampling threshold. The model considers only the results of the tokens with top_p probability mass. Defaults to 0.3.
+"presence_penalty": float Penalizes tokens based on whether they have appeared in the text so far, increasing the likelihood of the model talking about new topics. Defaults to 0.4.
+"frequency_penalty": float Penalizes tokens based on their existing frequency in the text, decreasing the likelihood of repeating the same lines. Defaults to 0.7.
+"max_token": int The maximum number of tokens to generate in the response. Defaults to 512.
+prompt_config: dict | None
+Instructions and behavioral settings for the LLM. Defaults to None (server-side defaults apply). Supported keys:
+
+"system": string The core system prompt or instructions defining the assistant's persona.
+"empty_response": string The specific message returned when no relevant information is retrieved. If left blank, the LLM will generate its own response. Defaults to None.
+"prologue": string The initial greeting displayed to the user. Defaults to "Hi! I’m your assistant. What can I do for you?".
+"quote": boolean Determines whether the assistant should include citations or source references in its responses. Defaults to True.
+"parameters": list[dict] A list of variables utilized within the system prompt. Each entry must include a "key" (string) and an "optional" (boolean) status. The knowledge key is reserved for retrieved context chunks. Default: [{"key": "knowledge", "optional": true}].
+Returns
+Success: A Chat object representing the chat assistant.
+Failure: Exception
+### Examples
+from ragflow_sdk import RAGFlow
+
+rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
+datasets = rag_object.list_datasets(name="kb_1")
+dataset_ids = []
+for dataset in datasets:
+    dataset_ids.append(dataset.id)
+assistant = rag_object.create_chat("Miss R", dataset_ids=dataset_ids)
+
+2.## Update chat assistant
+Chat.update(update_message: dict)
+
+Performs a partial update to the configuration settings for the current chat assistant.
+
+Chat.update() utilizes the PATCH /api/v1/chats/{chat_id} endpoint. Only the specified keys are modified, while all other existing fields are preserved.
+
+### Parameters
+update_message: dict, Required
+A dictionary containing the attributes to be updated. Supported keys include:
+
+"name": string The updated name of the chat assistant.
+"icon": string A Base64-encoded string representing the assistant's avatar.
+"dataset_ids": list[string] A list of unique identifiers for the datasets associated with the assistant.
+"llm_id": string The unique identifier or name of the LLM to be used.
+"llm_setting": dict Configuration for LLM generation parameters:
+"temperature": float Controls the randomness of the model's output.
+"top_p": float Sets the nucleus sampling threshold.
+"presence_penalty": float Penalizes tokens based on whether they have already appeared in the text.
+"frequency_penalty": float Penalizes tokens based on their existing frequency in the text.
+"max_token": int The maximum number of tokens to generate in the response.
+"prompt_config": dict Instructions and behavioral settings for the LLM:
+"system": string The core system prompt or instructions defining the assistant's persona.
+"empty_response": string The message returned when no relevant information is retrieved. Leave blank to allow the LLM to improvise.
+"prologue": string The initial greeting displayed to the user.
+"quote": boolean Determines whether the assistant should include citations or source references.
+"parameters": list[dict] Variables used within the system prompt (e.g., the reserved knowledge key).
+"similarity_threshold": float The minimum similarity score required for retrieved context chunks. Defaults to 0.2.
+"vector_similarity_weight": float The weight assigned to vector cosine similarity within the hybrid search score. Defaults to 0.3.
+"top_n": int The number of top-ranked chunks provided to the LLM as context. Defaults to 6.
+"top_k": int The size of the initial candidate pool retrieved for reranking. Defaults to 1024.
+"rerank_id": string The unique identifier for the reranking model. If left empty, standard vector cosine similarity is used for ranking.
+Returns
+Success: No value is returned.
+Failure: Exception
+### Examples
+from ragflow_sdk import RAGFlow
+
+rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
+datasets = rag_object.list_datasets(name="kb_1")
+dataset_id = datasets[0].id
+assistant = rag_object.create_chat("Miss R", dataset_ids=[dataset_id])
+assistant.update({"name": "Stefan", "llm_setting": {"temperature": 0.8}, "top_n": 8})
+
+
+3.## Delete chat assistants
+RAGFlow.delete_chats(ids: list[str] | None = None, delete_all: bool = False)
+
+Deletes chat assistants by ID.
+
+### Parameters
+ids: list[str] or None
+The IDs of the chat assistants to delete. Defaults to None.
+
+If omitted, or set to null or an empty array, no chat assistants are deleted.
+If an array of IDs is provided, only the chat assistants matching those IDs are deleted.
+delete_all: bool
+Whether to delete all chat assistants owned by the current user when ids is omitted, or set to None or an empty list. Defaults to False.
+
+Returns
+Success: No value is returned.
+Failure: Exception
+### Examples
+from ragflow_sdk import RAGFlow
+
+rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
+rag_object.delete_chats(ids=["id_1","id_2"])
+rag_object.delete_chats(delete_all=True)
+
+4.## List chat assistants
+RAGFlow.list_chats(
+    page: int = 1, 
+    page_size: int = 30, 
+    orderby: str = "create_time", 
+    desc: bool = True,
+    id: str | None = None,
+    name: str | None = None,
+    keywords: str | None = None,
+    owner_ids: str | list[str] | None = None,
+    parser_id: str | None = None
+) -> list[Chat]
+
+Lists chat assistants.
+
+### Parameters
+page: int
+Specifies the page on which the chat assistants will be displayed. Defaults to 1.
+
+page_size: int
+The number of chat assistants on each page. Defaults to 30.
+
+orderby: string
+The attribute by which the results are sorted. Available options:
+
+"create_time" (default)
+"update_time"
+desc: bool
+Indicates whether the retrieved chat assistants should be sorted in descending order. Defaults to True.
+
+id: string | None
+Exact match on chat assistant ID. Defaults to None.
+
+Filters results by the exact name of the chat assistant. Defaults to None.
+
+keywords: string | None
+Performs a case-insensitive fuzzy search against chat assistant names. Defaults to None.
+
+owner_ids: string | list[string] | None
+Filters results by one or more owner tenant IDs. Defaults to None.
+
+parser_id: string | None
+Filters results by a specific parser type identifier. Defaults to None.
+
+If id or name is specified, exact filtering takes precedence over the fuzzy matching provided by keywords.
+
+Returns
+Success: A list of Chat objects.
+Failure: Exception.
+### Examples
+from ragflow_sdk import RAGFlow
+
+rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
+for assistant in rag_object.list_chats():
+    print(assistant)
+
+
+5.## List chat assistant's sessions
+Chat.list_sessions(
+    page: int = 1,
+    page_size: int = 30,
+    orderby: str = "create_time",
+    desc: bool = True,
+    id: str = None,
+    name: str = None,
+    user_id: str = None
+) -> list[Session]
+
+Lists sessions associated with the current chat assistant.
+
+### Parameters
+page: int
+Specifies the page on which the sessions will be displayed. Defaults to 1.
+
+page_size: int
+The number of sessions on each page. Defaults to 30.
+
+orderby: string
+The field by which sessions should be sorted. Available options:
+
+"create_time" (default)
+"update_time"
+desc: bool
+Indicates whether the retrieved sessions should be sorted in descending order. Defaults to True.
+
+id: string
+The ID of the chat session to retrieve. Defaults to None.
+
+name: string
+The name of the chat session to retrieve. Defaults to None.
+
+user_id: str
+The optional user-defined ID to filter sessions by. Defaults to None.
+
+Returns
+Success: A list of Session objects associated with the current chat assistant.
+Failure: Exception.
+### Examples
+from ragflow_sdk import RAGFlow
+
+rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
+assistant = rag_object.list_chats(name="Miss R")
+assistant = assistant[0]
+for session in assistant.list_sessions():
+    print(session)

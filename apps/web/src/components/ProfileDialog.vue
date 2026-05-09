@@ -19,7 +19,10 @@ const dialogVisible = computed({
   set: (val) => emit('update:visible', val)
 })
 
-const userInfo = computed(() => authStorage.getUserInfo())
+const userInfo = ref(authStorage.getUserInfo())
+
+// 是否为演示账号
+const isDemoAccount = computed(() => userInfo.value?.email === 'test@qq.com')
 
 // 昵称编辑
 const editingNickname = ref(false)
@@ -37,6 +40,8 @@ const savingPassword = ref(false)
 
 watch(() => props.visible, (val) => {
   if (val) {
+    // 刷新用户信息
+    userInfo.value = authStorage.getUserInfo()
     nicknameInput.value = userInfo.value?.nickname || ''
     editingNickname.value = false
     showPasswordForm.value = false
@@ -74,6 +79,8 @@ async function saveNickname() {
         info.nickname = res.data.nickname
         authStorage.setUserInfo(info)
       }
+      // 更新响应式数据
+      userInfo.value = authStorage.getUserInfo()
       editingNickname.value = false
       ElMessage.success('昵称修改成功')
       emit('updated')
@@ -183,7 +190,12 @@ async function savePassword() {
         <div class="profile-field-value">
           <template v-if="!showPasswordForm">
             <span class="profile-field-text">******</span>
-            <el-button link type="primary" @click="showPasswordForm = true">修改</el-button>
+            <template v-if="isDemoAccount">
+              <el-tag size="small" type="info">演示账号</el-tag>
+            </template>
+            <template v-else>
+              <el-button link type="primary" @click="showPasswordForm = true">修改</el-button>
+            </template>
           </template>
         </div>
       </div>

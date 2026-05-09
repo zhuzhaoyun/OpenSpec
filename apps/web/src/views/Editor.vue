@@ -14,10 +14,11 @@ import DocumentOutline from '../components/DocumentOutline.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import ChatAssistant from '../components/ChatAssistant.vue'
 import {
-  mockOperationRecord,
   type ProjectInfo,
   promptParamsByTitle
 } from '../data/mockData'
+import { useOperationRecord } from '../composables/useOperationRecord'
+import { listOperationRecords, clearOperationRecords, ACTION_TYPE_LABELS, type OperationRecord } from '../service/operationRecord'
 
 import { parse2Json, parseSecondaryHeadings } from '../utils/convert'
 import { downloadFile } from '../utils/document'
@@ -35,10 +36,8 @@ const router = useRouter()
 
 const userInfo = computed(() => authStorage.getUserInfo())
 const userId = computed(() => {
-  const name = userInfo.value?.name
-  const email = userInfo.value?.email
-  const id = userInfo.value?.id
-  return name || email || id || ''
+  const info = userInfo.value
+  return info?.id || ''
 })
 
 // 处理用户下拉菜单命令（logout 由 AppHeader 统一处理）
@@ -87,6 +86,7 @@ const currentBlockContent = ref('')
 const currentBlockId = ref('')
 const isServerDoc = computed(() => !!currentDocumentId.value)
 const inGenerating = ref(false)
+const showCitation = ref(false)  // 引用标记显示开关（从 ChatAssistant 同步）
 
 const abortGenerate = () => {
   inGenerating.value = false
@@ -99,6 +99,37 @@ const currentChapterId = ref('')
 // 引用资料折叠状态
 const isReferenceMaterialsExpanded = ref(false)
 const activeBottomTab = ref<'reference' | 'operation'>('reference')
+
+// 操作记录
+const { record: recordOperation } = useOperationRecord(currentDocumentId)
+const operationRecords = ref<OperationRecord[]>([])
+const contentBeforeEdit = ref('')  // 记录AI生成的原始内容，用于后续diff
+
+const loadOperationRecords = async () => {
+  if (!currentDocumentId.value) return
+  operationRecords.value = await listOperationRecords({
+    document_id: currentDocumentId.value,
+    limit: 50,
+  })
+}
+
+const handleClearRecords = async () => {
+  if (!currentDocumentId.value) return
+  try {
+    await ElMessageBox.confirm('确定清空当前文档的所有操作记录？', '清空操作记录', {
+      type: 'warning',
+      confirmButtonText: '清空',
+      cancelButtonText: '取消',
+    })
+    const ok = await clearOperationRecords(currentDocumentId.value)
+    if (ok) {
+      operationRecords.value = []
+      ElMessage.success('操作记录已清空')
+    } else {
+      ElMessage.error('清空失败')
+    }
+  } catch {}
+}
 
 // 处理章节点击事件
 const handleChapterClick = async (chapterId: string) => {
@@ -124,6 +155,7 @@ const handleChapterClick = async (chapterId: string) => {
   scrollToChapter(chapterId)
   try {
     const chapter = chapters.value.find(ch => ch.id === chapterId)
+    recordOperation('chapter_switched', chapter?.title, `切换到章节: ${chapter?.title || chapterId}`)
     const blockId = chapter && (chapter as any).blockId
     if (currentDocumentId.value && blockId) {
       currentBlockId.value = String(blockId)
@@ -407,12 +439,27 @@ const handleContentStreaming = (content: string) => {
   currentBlockContent.value = content
 }
 
-const handleContentGenerated = (content: string) => {
+const handleContentGenerated = (content: string, chunkRef?: any[], docAggs?: any[]) => {
   if (content && content.trim()) {
+    contentBeforeEdit.value = content
     currentBlockContent.value = content
+
+    // 将引用元数据存入当前章节
+    if (currentChapter.value) {
+      if (chunkRef && chunkRef.length > 0) {
+        currentChapter.value.chunkReference = chunkRef
+      }
+      if (docAggs && docAggs.length > 0) {
+        currentChapter.value.docReference = docAggs
+      }
+    }
+
     markAsModified()
     updateCurrentChapterSecondaryHeadings()
     ElMessage.success('AI 生成内容已应用到编辑器')
+    recordOperation('content_generated', currentChapter.value?.title, 'AI生成内容已应用', {
+      content_length: content.length,
+    })
   }
 }
 
@@ -450,6 +497,10 @@ const saveMarkdownContent = async (content: string) => {
     if (res.code === 200) {
       isModified.value = false
       showNotification('文档已保存', 'success')
+      recordOperation('content_saved', currentChapter.value?.title, '保存了章节内容', {
+        content_length: content.length,
+        has_ai_generated: !!contentBeforeEdit.value,
+      })
     } else {
       ElMessage.error(res.message || '保存失败')
     }
@@ -625,6 +676,12 @@ const extractGeneratedContent = (resp: any) => {
 }
 
 const generateDocumentDefault = async () => {
+  if (!userId.value) {
+    ElMessage.error('无法获取用户信息，请重新登录')
+    console.error('userId is empty, cannot generate document')
+    return
+  }
+
   const allItems = chapters.value
   if (!allItems || allItems.length === 0) return
 
@@ -727,6 +784,9 @@ const generateDocumentDefault = async () => {
   }, MAX_CONCURRENCY)
 
   chapterGenerationStatus.value = {}
+  recordOperation('batch_generated', undefined, '一键生成全部章节', {
+    chapter_count: allItems.length,
+  })
 }
 
 // 生命周期
@@ -821,6 +881,9 @@ onMounted(async () => {
       isModified.value = false
     }
   }, 30000)
+
+  // 加载操作记录
+  loadOperationRecords()
 })
 
 // 监听项目表单变化
@@ -832,6 +895,11 @@ watch(projectForm, () => {
     saveProjectInfo()
   }, 1000)
 }, { deep: true })
+
+// 切换到操作记录标签时刷新数据
+watch(activeBottomTab, (tab) => {
+  if (tab === 'operation') loadOperationRecords()
+})
 </script>
 
 <template>
@@ -953,6 +1021,7 @@ watch(projectForm, () => {
                 v-model="currentBlockContent"
                 :in-generating="inGenerating"
                 :current-chapter="currentChapter"
+                :show-citation="showCitation"
                 @update:modelValue="handleMarkdownUpdate"
                 @blur="handleMarkdownUpdate"
                 @save="saveMarkdownContent"
@@ -1006,22 +1075,32 @@ watch(projectForm, () => {
                       <div
                         class="reference-item"
                         v-for="(refItem, index) in currentChapter.docReference"
-                        :key="refItem.id || index"
+                        :key="refItem.doc_name || index"
                       >
                         <div class="item-header">
-                          <span class="item-title">{{ refItem.name || refItem.title }}</span>
+                          <span class="item-title">{{ refItem.doc_name }}</span>
+                          <span v-if="refItem.count" class="item-count">{{ refItem.count }} 处引用</span>
                         </div>
                       </div>
                     </div>
                   </template>
 
                   <template v-if="activeBottomTab === 'operation'">
-                    <div class="opretaion-item" style="margin:10px 0" v-for="(record, index) in mockOperationRecord" :key="index">
+                    <div v-if="operationRecords.length" style="text-align: right; margin-bottom: 4px;">
+                      <el-button type="danger" link size="small" @click="handleClearRecords">清空记录</el-button>
+                    </div>
+                    <div v-if="!operationRecords.length" class="reference-empty">
+                      <el-icon class="empty-icon"><Document /></el-icon>
+                      <span class="empty-text">暂无操作记录</span>
+                    </div>
+                    <div class="opretaion-item" style="margin:10px 0" v-for="record in operationRecords" :key="record.id">
                       <div class="item-header">
-                        <span class="item-title">{{record.time}}</span>
+                        <span class="item-title">{{ new Date(record.created_at || '').toLocaleString('zh-CN') }}</span>
                       </div>
                       <div class="item-description">
-                        {{record.subjectName}}-{{record.action}}-{{record.chapter}}-{{record.objectName}}
+                        {{ ACTION_TYPE_LABELS[record.action_type] || record.action_type }}
+                        <template v-if="record.chapter_name"> - {{ record.chapter_name }}</template>
+                        <template v-if="record.action_detail"> - {{ record.action_detail }}</template>
                       </div>
                     </div>
                   </template>
@@ -1044,6 +1123,8 @@ watch(projectForm, () => {
         :project-info="projectForm"
         @content-streaming="handleContentStreaming"
         @content-generated="handleContentGenerated"
+        @generation-stopped="recordOperation('generation_stopped', currentChapter?.title, '用户中途停止了AI生成')"
+        @update:enable-citation="(val: boolean) => showCitation = val"
       />
     </div>
   </div>
@@ -1482,10 +1563,22 @@ watch(projectForm, () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.reference-materials-bottom .item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .reference-materials-bottom .item-title {
   font-weight: 600;
   color: var(--gray-800);
   font-size: 14px;
+}
+
+.reference-materials-bottom .item-count {
+  font-size: 12px;
+  color: var(--gray-500);
+  white-space: nowrap;
 }
 
 .reference-materials-bottom .item-description {
