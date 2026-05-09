@@ -1,16 +1,16 @@
 <h1 align="center">OpenSpec</h1>
 
 <p align="center">
-  <strong>Enterprise-Grade AI Platform for Professional Long-Document Generation</strong>
+  <strong>企业级 AI 长文档生成与智能审查平台</strong>
 </p>
 
 <p align="center">
-  Turn your knowledge base into standards-compliant, publication-ready documents in minutes — not days.
+  集专业长文档生成与 Agent 智能审查于一体 —— 从数天缩短到数分钟。
 </p>
 
 <p align="center">
-  <a href="./README.md">English</a> |
-  <a href="./README_zh.md">中文</a>
+  <a href="./README_zh.md">中文</a> |
+  <a href="./README_en.md">English</a>
 </p>
 
 <p align="center">
@@ -22,156 +22,151 @@
 </p>
 
 <p align="center">
-  <a href="https://archspec.aizzyun.com/">Live Demo</a> &bull;
-  <a href="https://www.bilibili.com/video/BV1DoFUzBEmW/">Video Introduction</a> &bull;
-  <a href="#quick-start">Quick Start</a> &bull;
-  <a href="#contact-us">Contact Us</a>
+  <a href="https://archspec.aizzyun.com/">在线体验</a> &bull;
+  <a href="https://www.bilibili.com/video/BV1DoFUzBEmW/">视频介绍</a> &bull;
+  <a href="#快速开始">快速开始</a> &bull;
+  <a href="#联系我们">联系我们</a>
 </p>
 
 ---
 
-## Why OpenSpec?
+## 为什么选择 OpenSpec？
 
-Generic AI (ChatGPT, Claude, Qwen, etc.) falls short on professional long documents:
+通用 AI（ChatGPT、Claude、通义千问等）在专业长文档上力不从心：
 
-| Problem | Generic AI | OpenSpec |
-|---------|:----------:|:--------:|
-| Documents over 50 pages | Context lost, inconsistencies | Chapter-by-chapter generation, fully coherent |
-| Industry standards & regulations | Hallucination, makes things up | RAG retrieval from your own knowledge base |
-| Document formatting & templates | Cannot control layout | PDF / Markdown / AutoCAD export |
-| Quality assurance | Single-pass, no review | Three-agent workflow (Researcher + Generator + Auditor) |
+| 问题 | 通用 AI | OpenSpec |
+|------|:-------:|:--------:|
+| 超过 50 页的文档 | 上下文丢失，前后矛盾 | 逐章生成，全篇连贯 |
+| 行业标准与规范引用 | 幻觉严重，凭空编造 | RAG 检索你自己的知识库 |
+| 文档格式与模板 | 无法控制排版 | PDF / Markdown / AutoCAD 导出 |
+| 质量保障 | 单次生成，无审核 | 三智能体工作流（Researcher + Generator + Auditor） |
+| 规范条文审查 | 无法逐条对照、容易遗漏 | Agent 驱动的智能审查模块，逐条校验 |
 
-**OpenSpec is not another AI writing tool.** It is a document engineering platform built for professionals who need accuracy, compliance, and scale.
+**OpenSpec 不是又一个 AI 写作工具。** 它是一个为专业人士打造的文档工程平台，集长文档生成与智能审查于一体，确保准确性、合规性和规模化生产。
 
-## How It Works
+## 工作原理
 
-```
-                          ┌───────────────────────────────────────┐
-                          │          Knowledge Base (RAG)         │
-                          │   (Standards, Cases, Project Docs)    │
-                          └──┬──────────────┬──────────────┬─────┘
-                             │              │              │
-                          query on       query on       query on
-                          demand         demand         demand
-                             │              │              │
-┌──────────┐     ┌──────────▼──┐     ┌─────▼──────┐     ┌▼───────────┐     ┌──────────┐
-│  User    │────▶│  Researcher │────▶│  Generator │────▶│  Auditor   │────▶│  Human-AI│
-│  Input   │     │  (Research  │     │  (Write    │     │  (Review & │     │  Editing │
-│          │     │   & Gather) │     │   Content) │     │   Verify)  │     │          │
-└──────────┘     └─────────────┘     └────────────┘     └──────┬─────┘     └────┬─────┘
-                                           ▲                   │                │
-                                           └───── revise ──────┘                ▼
-                                                                        ┌──────────────┐
-                                                                        │  One-Click    │
-                                                                        │  Export       │
-                                                                        │  (PDF/MD/CAD) │
-                                                                        └──────────────┘
-```
+### 长文档生成 — 三智能体工作流
 
-The system is powered by a **three-agent workflow**, where each agent can autonomously query the knowledge base when it needs more context:
+<img src="docs/长文本生成智能体架构图.png" alt="长文生成架构" width="600" />
 
-1. **Researcher Agent** — Gathers relevant standards, historical cases, and reference materials from the knowledge base to build a solid research foundation
-2. **Generator Agent** — Produces standards-compliant professional content chapter by chapter, based on the research context
-3. **Auditor Agent** — Reviews the generated content for compliance, consistency, and accuracy; queries the knowledge base for cross-validation and sends revisions back to the Generator if needed
-4. **Human-AI Collaboration** — Review, rewrite, and refine at the chapter level
-5. **One-Click Export** — PDF, Markdown, AutoCAD title blocks, and more
+系统由**三智能体工作流**驱动，每个智能体在发现当前上下文不足时，会自主查询知识库获取补充信息：
 
-## Use Cases
+1. **Researcher（检索智能体）** — 从知识库中检索相关规范条文、历史案例和参考资料，构建扎实的研究基础
+2. **Generator（生成智能体）** — 基于检索上下文，逐章生成符合行业标准的专业内容
+3. **Auditor（校验智能体）** — 审核生成内容的合规性、一致性和准确性；按需查询知识库进行交叉验证，发现问题则回传 Generator 修订
+4. **人机协作** — 支持逐章校审、改写、补充
+5. **一键导出** — PDF、Markdown、AutoCAD 图框等多种专业格式
 
-| Domain | Typical Documents |
-|--------|-------------------|
-| Architecture Design | Construction drawing design notes, feasibility study reports |
-| Automotive Repair | Repair technical manuals, fault diagnosis reports |
-| Healthcare | Clinical trial reports, diagnosis & treatment standard documents |
-| Bidding & Tendering | Technical proposals, tender document preparation |
-| **Any Industry** | **Any structured long document generated from a knowledge base** |
+### 智能审查 — Agent 驱动的独立审查模块
 
-## UI Showcase
+<img src="docs/文件审查时序图.png" alt="文本审查时序图" width="600" />
+
+**审查模块**是一个以 Agent 为中心的独立子系统，具备广泛的领域适应性，不局限于特定行业：
+
+- **条文录入与管理** — 支持任意行业规范、标准、合同条款的结构化录入
+- **Agent 逐条审查** — 智能体自动对照条文与文档内容，逐条分析合规性
+- **不符项自动标识** — 精准定位问题位置，生成审查意见与修改建议
+- **多领域适配** — 通过配置即可适配建筑、医疗、法律、金融等不同行业的审查需求
+- **审查报告导出** — 一键生成带批注的审查报告，支持追溯与归档
+
+## 适用场景
+
+| 领域 | 典型文档 |
+|------|---------|
+| 建筑设计 | 施工图设计说明、可行性研究报告、设计规范审查 |
+| 汽车维修 | 维修技术手册、故障诊断报告 |
+| 医疗健康 | 临床试验报告、诊疗规范文档、合规审查 |
+| 法律金融 | 合同审查、合规报告、政策条文核对 |
+| 招投标 | 投标技术方案、招标文件编制、合规性审查 |
+| **更多领域** | **任何需要基于知识库生成的结构化长文档，以及规范/条款的智能审查** |
+
+## UI 展示
 
 <table style="border-collapse: collapse; border: 1px solid black;">
   <tr>
-    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/2d67e1a4-a779-43b7-a770-a07deb649711" alt="Project List" /></td>
-    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/efcae9fa-bf8d-4b53-93f6-2d49e6119042" alt="Document Editor" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/2d67e1a4-a779-43b7-a770-a07deb649711" alt="项目列表" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/efcae9fa-bf8d-4b53-93f6-2d49e6119042" alt="文档编辑器" /></td>
   </tr>
   <tr>
-    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/889a30b5-d014-46ca-84e4-26334f6076ba" alt="AI Chat Assistant" /></td>
-    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/1b04355c-709a-4a33-9e39-ac7d04ce483c" alt="Knowledge Base Retrieval" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/889a30b5-d014-46ca-84e4-26334f6076ba" alt="AI 对话助手" /></td>
+    <td style="padding: 5px;background-color:#fff;"><img src="https://github.com/user-attachments/assets/1b04355c-709a-4a33-9e39-ac7d04ce483c" alt="知识库检索" /></td>
   </tr>
 </table>
 
-> **Video Demo (Architecture Design Scenario):** [Watch on Bilibili](https://www.bilibili.com/video/BV1DoFUzBEmW/?share_source=copy_web&vd_source=d91cce476d06006159a799f4db6b9171)
+> **视频演示（建筑设计场景）：** [在 B 站观看](https://www.bilibili.com/video/BV1DoFUzBEmW/?share_source=copy_web&vd_source=d91cce476d06006159a799f4db6b9171)
 
-## Live Demo
+## 在线体验
 
-Try OpenSpec online: **[https://archspec.aizzyun.com/](https://archspec.aizzyun.com/)**
+试用地址：**[https://archspec.aizzyun.com/](https://archspec.aizzyun.com/)**
 
-- Email: `test@qq.com`
-- Password: `test123456`
+- 账号：`test@qq.com`
+- 密码：`test123456`
 
-## Tech Stack
+## 技术栈
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Vue 3, TypeScript, Vite |
-| Backend | Spring Boot 3, Java 17 |
-| AI Agent | Python, LangGraph, LangChain |
-| Knowledge Retrieval | RAGFlow |
-| Observability | Langfuse (LLM tracing & cost analytics) |
-| Database | PostgreSQL |
-| Deployment | Docker, Docker Compose |
+| 层级 | 技术 |
+|------|-----|
+| 前端 | Vue 3、TypeScript、Vite |
+| 后端 | Spring Boot 3、Java 17 |
+| AI Agent | Python、LangGraph、LangChain |
+| 知识检索 | RAGFlow |
+| 可观测性 | Langfuse（LLM 调用追踪与成本分析） |
+| 数据库 | PostgreSQL |
+| 部署 | Docker、Docker Compose |
 
-## Quick Start
+## 快速开始
 
-### Requirements
+### 环境要求
 
-| Component | Version |
-|-----------|---------|
+| 组件 | 版本要求 |
+|------|---------|
 | Docker | >= 20.10 |
 | Docker Compose | >= 2.0 |
 
-### One-Click Deployment
+### 一键部署
 
 ```bash
-# 1. Clone the repository
+# 1. 克隆项目
 git clone https://github.com/zhuzhaoyun/OpenSpec.git
 cd OpenSpec
 
-# 2. Copy and edit environment variables
+# 2. 复制并修改环境变量
 cp deploy/docker/.env.example deploy/docker/.env
-# Edit .env and fill in required configurations (RAGFlow, LLM API Key, etc.)
+# 编辑 .env 文件，填入必要配置（RAGFlow、LLM API Key 等）
 
-# 3. Start all services
+# 3. 启动所有服务
 cd deploy/docker
 docker compose up -d
 ```
 
-Once started, visit `http://localhost` to use the platform.
+启动完成后访问 `http://localhost` 即可使用。
 
-### Environment Variables
+### 环境变量说明
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `RAGFLOW_API_KEY` | RAGFlow API key | Yes |
-| `RAGFLOW_BASE_URL` | RAGFlow service URL | Yes |
-| `DASHSCOPE_API_KEY` | LLM API key (default: Qwen) | Yes |
-| `LANGFUSE_SECRET_KEY` | Langfuse secret key (Prompt management) | No |
-| `LANGFUSE_PUBLIC_KEY` | Langfuse public key | No |
-| `LANGFUSE_BASE_URL` | Langfuse service URL | No |
+| 变量名 | 说明 | 必填 |
+|--------|------|------|
+| `RAGFLOW_API_KEY` | RAGFlow API 密钥 | 是 |
+| `RAGFLOW_BASE_URL` | RAGFlow 服务地址 | 是 |
+| `DASHSCOPE_API_KEY` | LLM API 密钥（默认通义千问） | 是 |
+| `LANGFUSE_SECRET_KEY` | Langfuse 私钥（Prompt 管理） | 否 |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse 公钥 | 否 |
+| `LANGFUSE_BASE_URL` | Langfuse 服务地址 | 否 |
 
-For the full list of environment variables, see [`deploy/docker/.env.example`](deploy/docker/.env.example).
+完整的环境变量说明请参考 [`deploy/docker/.env.example`](deploy/docker/.env.example)。
 
-### Local Development
+### 本地开发
 
 <details>
-<summary>Expand to view local development guide</summary>
+<summary>展开查看本地开发指南</summary>
 
-#### Frontend
+#### 前端
 
 ```bash
 cd apps/web
 npm install
 npm run dev
-# Visit http://localhost:5173
+# 访问 http://localhost:5173
 ```
 
 #### AI Agent
@@ -180,11 +175,11 @@ npm run dev
 cd apps/agent
 pip install -r requirements.txt
 cp ../../deploy/docker/.env.example .env
-# Edit .env and fill in required configurations
+# 编辑 .env 填入必要配置
 uvicorn app:app --reload --port 5000 --host 0.0.0.0
 ```
 
-#### Backend
+#### 后端
 
 ```bash
 cd apps/backend
@@ -193,17 +188,17 @@ mvn spring-boot:run
 
 </details>
 
-## Customization & Cooperation
+## 定制与合作
 
-For enterprise customization, feature extensions, deployment support, or professional training services, please feel free to contact us.
+如需企业定制、功能扩展、部署支持或深度培训服务，欢迎联系我们。
 
-## Contributing
+## 参与贡献
 
-We welcome contributions! Feel free to:
+欢迎参与贡献！你可以：
 
-- Star this project to show your support
-- Submit [Issues](https://github.com/zhuzhaoyun/OpenSpec/issues) for bug reports and feature requests
-- Open [Pull Requests](https://github.com/zhuzhaoyun/OpenSpec/pulls) for improvements
+- 给项目点个 Star 表示支持
+- 提交 [Issue](https://github.com/zhuzhaoyun/OpenSpec/issues) 反馈 Bug 或功能建议
+- 发起 [Pull Request](https://github.com/zhuzhaoyun/OpenSpec/pulls) 贡献代码
 
 ## Star History
 
@@ -215,14 +210,14 @@ We welcome contributions! Feel free to:
  </picture>
 </a>
 
-## Contact Us
+## 联系我们
 
-For enterprise edition details or business cooperation, feel free to reach out:
+如需了解企业版详情或商业合作，欢迎通过以下方式联系：
 
-- Email: `dlutyaol@qq.com`
-- WeChat: Scan the QR code below
+- 邮箱：`dlutyaol@qq.com`
+- 企业微信：扫描下方二维码添加
 
-  <img src="docs/wechat_qr.png" alt="WeChat" width="200" />
+  <img src="docs/wechat_qr.png" alt="企业微信" width="200" />
 
 ## License
 
