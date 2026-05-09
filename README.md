@@ -221,7 +221,7 @@ mvn spring-boot:run
 - 邮箱：`dlutyaol@qq.com`
 - 企业微信：扫描下方二维码添加
 
-  <img src="docs/wechat_qr.png" alt="企业微信" width="200" />
+  <img src="docs/企业微信.png" alt="企业微信" width="200" />
 
 ## License
 
